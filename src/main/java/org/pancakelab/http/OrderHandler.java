@@ -26,7 +26,7 @@ public class OrderHandler implements HttpHandler {
     private final Pattern ingredientPattern = Pattern.compile("/api/orders/([^/]+)/pancakes/([^/]+)/ingredient/?$");
 
     public OrderHandler() {
-        this.pancakeService = new PancakeService();
+        this.pancakeService = PancakeService.getInstance();
     }
 
     @Override

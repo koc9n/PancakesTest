@@ -7,10 +7,20 @@ import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
 
 public class PancakeService {
+    private static final PancakeService INSTANCE = new PancakeService();
+
     private final List<Order> orders = new ArrayList<>();
     private final Set<UUID> completedOrders = new HashSet<>();
     private final Set<UUID> preparedOrders = new HashSet<>();
     private final List<PancakeRecipe> pancakes = new ArrayList<>();
+
+    private PancakeService() {
+        // private constructor to prevent instantiation
+    }
+
+    public static PancakeService getInstance() {
+        return INSTANCE;
+    }
 
     public Order createOrder(int building, int room) {
         Order order = new Order(building, room);

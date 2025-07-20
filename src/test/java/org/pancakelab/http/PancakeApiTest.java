@@ -3,6 +3,7 @@ package org.pancakelab.http;
 import org.junit.jupiter.api.*;
 import org.pancakelab.http.dto.CreatePancakeResponse;
 import org.pancakelab.http.dto.OrderResponse;
+import org.pancakelab.service.PancakeService;
 
 import java.net.URI;
 import java.net.http.HttpClient;
@@ -20,6 +21,7 @@ public class PancakeApiTest {
     private static PancakeHttpServer server;
     private static HttpClient client;
     private String orderId;
+    private final PancakeService pancakeService = PancakeService.getInstance();
 
     @BeforeAll
     void setUp() throws Exception {
@@ -32,6 +34,13 @@ public class PancakeApiTest {
 
     @AfterAll
     void tearDown() {
+        if (orderId != null) {
+            try {
+                pancakeService.cancelOrder(UUID.fromString(orderId));
+            } catch (Exception ignored) {
+                // Order might have been already cancelled or delivered
+            }
+        }
         server.stop();
     }
 

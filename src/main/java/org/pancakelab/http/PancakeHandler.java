@@ -15,7 +15,7 @@ public class PancakeHandler implements HttpHandler {
     private final PancakeService pancakeService;
 
     public PancakeHandler() {
-        this.pancakeService = new PancakeService();
+        this.pancakeService = PancakeService.getInstance();
     }
 
     @Override
@@ -25,14 +25,16 @@ public class PancakeHandler implements HttpHandler {
             String method = exchange.getRequestMethod();
 
             if (path.matches("/api/pancakes/?")) {
-                switch (method) {
-                    case "POST" -> handleCreatePancake(exchange);
-                    default -> sendError(exchange, 405, "Method not allowed");
+                if (method.equals("POST")) {
+                    handleCreatePancake(exchange);
+                } else {
+                    sendError(exchange, 405, "Method not allowed");
                 }
             } else if (path.matches("/api/pancakes/[^/]+/ingredients/?")) {
-                switch (method) {
-                    case "POST" -> handleAddIngredient(exchange);
-                    default -> sendError(exchange, 405, "Method not allowed");
+                if (method.equals("POST")) {
+                    handleAddIngredient(exchange);
+                } else {
+                    sendError(exchange, 405, "Method not allowed");
                 }
             } else {
                 sendError(exchange, 404, "Not found");
