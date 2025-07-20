@@ -46,7 +46,7 @@ public class PancakeHandler implements HttpHandler {
 
     private void handleCreatePancake(HttpExchange exchange) throws IOException {
         CreatePancakeRequest request = JsonUtil.fromJson(exchange.getRequestBody(), CreatePancakeRequest.class);
-        UUID pancakeId = pancakeService.createPancake(UUID.fromString(request.orderId()));
+        UUID pancakeId = pancakeService.addPancakeToOrder(UUID.fromString(request.orderId()));
 
         Map<String, String> response = new HashMap<>();
         response.put("pancakeId", pancakeId.toString());

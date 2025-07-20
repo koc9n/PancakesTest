@@ -10,6 +10,8 @@ public interface Recipe {
         return "Delicious pancake with %s!".formatted(String.join(", ", ingredients()));
     }
 
+    UUID getId();
+
     UUID getOrderId();
 
     void setOrderId(UUID orderId);

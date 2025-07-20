@@ -21,16 +21,25 @@ import java.util.regex.Pattern;
 
 public class OrderHandler implements HttpHandler {
     private final PancakeService pancakeService;
+    private final RateLimiter rateLimiter;
     private final Pattern orderPattern = Pattern.compile("/api/orders/([^/]+)/?$");
     private final Pattern pancakePattern = Pattern.compile("/api/orders/([^/]+)/pancakes/?$");
     private final Pattern ingredientPattern = Pattern.compile("/api/orders/([^/]+)/pancakes/([^/]+)/ingredient/?$");
 
     public OrderHandler() {
         this.pancakeService = PancakeService.getInstance();
+        this.rateLimiter = new RateLimiter();
     }
 
     @Override
     public void handle(HttpExchange exchange) throws IOException {
+        String clientIp = exchange.getRemoteAddress().getAddress().getHostAddress();
+
+        if (!rateLimiter.allowRequest(clientIp)) {
+            sendError(exchange, 429, "Too Many Requests");
+            return;
+        }
+
         try {
             String path = exchange.getRequestURI().getPath();
             String method = exchange.getRequestMethod();
@@ -59,7 +68,11 @@ public class OrderHandler implements HttpHandler {
         } catch (ValidationException e) {
             sendError(exchange, e.getStatusCode(), e.getMessage());
         } catch (Exception e) {
-            sendError(exchange, 500, "Internal Server Error: " + e.getMessage());
+            System.err.println("Error processing request from " + clientIp + ": " + e.getMessage());
+            e.printStackTrace();
+            sendError(exchange, 500, "Internal Server Error");
+        } finally {
+            exchange.close();
         }
     }
 
@@ -124,7 +137,7 @@ public class OrderHandler implements HttpHandler {
         pancakeService.getOrder(orderUUID)
             .orElseThrow(() -> new ValidationException("Order not found", 404));
 
-        UUID pancakeId = pancakeService.createPancake(orderUUID);
+        UUID pancakeId = pancakeService.addPancakeToOrder(orderUUID);
         CreatePancakeResponse response = new CreatePancakeResponse(pancakeId.toString());
         sendResponse(exchange, 201, JsonUtil.toJson(response));
     }
