@@ -49,6 +49,24 @@ public class HttpUtils {
         sendError(exchange, 500, message != null ? message : "Internal Server Error");
     }
 
+    public static void sendEmpty(HttpExchange exchange, int statusCode) throws IOException {
+        exchange.sendResponseHeaders(statusCode, -1);
+    }
+
+    public static String getQueryParam(HttpExchange exchange, String paramName) {
+        String query = exchange.getRequestURI().getQuery();
+        if (query == null) return null;
+
+        String[] pairs = query.split("&");
+        for (String pair : pairs) {
+            String[] keyValue = pair.split("=");
+            if (keyValue.length == 2 && keyValue[0].equals(paramName)) {
+                return keyValue[1];
+            }
+        }
+        return null;
+    }
+
     /**
      * Standard error response format
      */

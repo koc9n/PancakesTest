@@ -75,39 +75,27 @@ public class OrderServiceImpl implements OrderService {
         return !orders.containsKey(orderId);
     }
 
-    private void updateOrderState(UUID orderId, OrderState newState) {
+    private synchronized void updateOrderState(UUID orderId, OrderState newState) {
         Order order = orders.get(orderId);
         if (order == null) {
             throw new IllegalArgumentException("Order not found");
         }
 
-        int maxRetries = 3;
-        int retryCount = 0;
+        OrderState currentState = order.getState();
+        validateStateTransition(currentState, newState);
 
-        while (retryCount < maxRetries) {
-            OrderState currentState = order.getState();
+        // Simple state update without retry logic
+        if (!order.compareAndSetState(currentState, newState)) {
+            // If CAS fails, try once more with current state
+            currentState = order.getState();
             validateStateTransition(currentState, newState);
-
-            // Try to update state using optimistic locking
-            if (order.compareAndSetState(currentState, newState)) {
-                // Log the successful state change
-                OrderLogServiceImpl.logOrderStateChange(order, currentState, newState);
-                return;
-            }
-
-            retryCount++;
-            if (retryCount == maxRetries) {
-                throw new ConcurrentModificationException("Failed to update order state after " + maxRetries + " retries");
-            }
-
-            // Small backoff before retry
-            try {
-                Thread.sleep(10L * retryCount);
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-                throw new RuntimeException("State update interrupted", e);
+            if (!order.compareAndSetState(currentState, newState)) {
+                throw new IllegalStateException("Failed to update order state due to concurrent modification");
             }
         }
+
+        // Log the successful state change
+        OrderLogServiceImpl.logOrderStateChange(order, currentState, newState);
     }
 
     private void validateStateTransition(OrderState currentState, OrderState newState) {

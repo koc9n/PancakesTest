@@ -1,10 +1,9 @@
 package org.pancakelab.model;
 
 import java.util.UUID;
-import java.util.concurrent.atomic.AtomicReference;
 
 public class Ingredient {
-    private final AtomicReference<UUID> id = new AtomicReference<>(UUID.randomUUID());
+    private final UUID id = UUID.randomUUID();
     private final String name;
 
     public Ingredient(String name) {
@@ -12,7 +11,7 @@ public class Ingredient {
     }
 
     public UUID getId() {
-        return id.get();
+        return id;
     }
 
     public String getName() {
@@ -29,6 +28,6 @@ public class Ingredient {
 
     @Override
     public int hashCode() {
-        return id.get().hashCode();
+        return id.hashCode();
     }
 }

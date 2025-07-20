@@ -24,9 +24,9 @@ public class PancakeHttpServer {
         executor = createExecutor(poolSize);
         server.setExecutor(executor);
 
-        // Register handlers with timeout wrapper and dependency injection
-        HttpHandler orderHandler = new TimeoutHandler(new OrderHandler(serviceFactory), config.getRequestTimeoutMs());
-        server.createContext("/api/orders", orderHandler);
+        // Use the new Router-based ApiHandler with timeout wrapper
+        HttpHandler apiHandler = new TimeoutHandler(new ApiHandler(serviceFactory), config.getRequestTimeoutMs());
+        server.createContext("/api", apiHandler);
     }
 
     private ExecutorService createExecutor(int poolSize) {

@@ -1,5 +1,7 @@
 package org.pancakelab.http;
 
+import com.sun.net.httpserver.HttpExchange;
+
 import java.io.BufferedReader;
 import java.io.InputStream;
 import java.io.InputStreamReader;
@@ -12,6 +14,16 @@ public class JsonUtil {
         String jsonString = new BufferedReader(new InputStreamReader(json))
                 .lines().collect(Collectors.joining());
         return fromJson(jsonString, clazz);
+    }
+
+    public static <T> T fromJson(HttpExchange exchange, Class<T> clazz) {
+        try {
+            String jsonString = new BufferedReader(new InputStreamReader(exchange.getRequestBody()))
+                    .lines().collect(Collectors.joining());
+            return fromJson(jsonString, clazz);
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to parse JSON from request: " + e.getMessage(), e);
+        }
     }
 
     public static byte[] serialize(Object obj) {

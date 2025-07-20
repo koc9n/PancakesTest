@@ -8,9 +8,9 @@ import java.util.UUID;
 import java.util.stream.Collectors;
 
 public record OrderResponse(UUID orderId, int building, int room, OrderState state, List<PancakeResponse> pancakes) {
-    public static OrderResponse from(Order order) {
+    public static OrderResponse fromOrder(Order order) {
         List<PancakeResponse> pancakeResponses = order.getPancakes().stream()
-                .map(PancakeResponse::from)
+                .map(PancakeResponse::fromPancake)
                 .collect(Collectors.toList());
         return new OrderResponse(
                 order.getId(),
@@ -19,5 +19,10 @@ public record OrderResponse(UUID orderId, int building, int room, OrderState sta
                 order.getState(),
                 pancakeResponses
         );
+    }
+
+    // Keep existing method for backward compatibility
+    public static OrderResponse from(Order order) {
+        return fromOrder(order);
     }
 }
