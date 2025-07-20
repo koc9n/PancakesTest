@@ -18,45 +18,17 @@ public class PancakeService {
         return order;
     }
 
-    public void addDarkChocolatePancake(UUID orderId, int count) {
-        for (int i = 0; i < count; ++i) {
-            addPancake(new DarkChocolatePancake(),
-                       orders.stream().filter(o -> o.getId().equals(orderId)).findFirst().get());
-        }
-    }
+    public void addPancakeToOrder(UUID orderId, List<String> ingredients, int count) {
+        Order order = orders.stream()
+                .filter(o -> o.getId().equals(orderId))
+                .findFirst()
+                .orElseThrow(() -> new IllegalArgumentException("Order not found"));
 
-    public void addDarkChocolateWhippedCreamPancake(UUID orderId, int count) {
         for (int i = 0; i < count; ++i) {
-            addPancake(new DarkChocolateWhippedCreamPancake(),
-                       orders.stream().filter(o -> o.getId().equals(orderId)).findFirst().get());
+            PancakeRecipe pancake = new PancakeRecipe();
+            ingredients.forEach(pancake::addIngredient);
+            addPancake(pancake, order);
         }
-    }
-
-    public void addDarkChocolateWhippedCreamHazelnutsPancake(UUID orderId, int count) {
-        for (int i = 0; i < count; ++i) {
-            addPancake(new DarkChocolateWhippedCreamHazelnutsPancake(),
-                       orders.stream().filter(o -> o.getId().equals(orderId)).findFirst().get());
-        }
-    }
-
-    public void addMilkChocolatePancake(UUID orderId, int count) {
-        for (int i = 0; i < count; ++i) {
-            addPancake(new MilkChocolatePancake(),
-                       orders.stream().filter(o -> o.getId().equals(orderId)).findFirst().get());
-        }
-    }
-
-    public void addMilkChocolateHazelnutsPancake(UUID orderId, int count) {
-        for (int i = 0; i < count; ++i) {
-            addPancake(new MilkChocolateHazelnutsPancake(),
-                       orders.stream().filter(o -> o.getId().equals(orderId)).findFirst().get());
-        }
-    }
-
-    public List<String> viewOrder(UUID orderId) {
-        return pancakes.stream()
-                       .filter(pancake -> pancake.getOrderId().equals(orderId))
-                       .map(PancakeRecipe::description).toList();
     }
 
     private void addPancake(PancakeRecipe pancake, Order order) {
@@ -119,5 +91,11 @@ public class PancakeService {
         preparedOrders.removeIf(u -> u.equals(orderId));
 
         return new Object[] {order, pancakesToDeliver};
+    }
+
+    public List<String> viewOrder(UUID orderId) {
+        return pancakes.stream()
+                       .filter(pancake -> pancake.getOrderId().equals(orderId))
+                       .map(PancakeRecipe::description).toList();
     }
 }

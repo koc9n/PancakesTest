@@ -166,8 +166,8 @@ public class PancakeServiceTest {
     }
 
     private void addPancakes() {
-        pancakeService.addDarkChocolatePancake(order.getId(), 3);
-        pancakeService.addMilkChocolatePancake(order.getId(), 3);
-        pancakeService.addMilkChocolateHazelnutsPancake(order.getId(), 3);
+        pancakeService.addPancakeToOrder(order.getId(), List.of("dark chocolate"), 3);
+        pancakeService.addPancakeToOrder(order.getId(), List.of("milk chocolate"), 3);
+        pancakeService.addPancakeToOrder(order.getId(), List.of("milk chocolate", "hazelnuts"), 3);
     }
 }

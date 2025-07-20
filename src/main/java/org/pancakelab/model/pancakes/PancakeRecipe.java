@@ -1,15 +1,24 @@
 package org.pancakelab.model.pancakes;
 
-import java.util.List;
-import java.util.UUID;
+import java.util.*;
 
-public interface PancakeRecipe {
-    default String description()
-    {
-        return "Delicious pancake with %s!".formatted(String.join(", ", ingredients()));
+public class PancakeRecipe implements Recipe {
+    private UUID orderId;
+    protected List<String> ingredients = new ArrayList<>();
+
+    public UUID getOrderId() {
+        return orderId;
     }
 
-    UUID getOrderId();
-    void setOrderId(UUID orderId);
-    List<String> ingredients();
+    public void setOrderId(UUID orderId) {
+        this.orderId = orderId;
+    }
+
+    public List<String> ingredients() {
+        return ingredients;
+    }
+
+    public void addIngredient(String ingredient) {
+        ingredients.add(ingredient);
+    }
 }
