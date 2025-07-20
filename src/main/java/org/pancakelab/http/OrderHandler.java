@@ -14,9 +14,7 @@ import org.pancakelab.service.ServiceFactory;
 import org.pancakelab.util.Logger;
 
 import java.io.IOException;
-import java.io.OutputStream;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.regex.Matcher;
@@ -50,7 +48,7 @@ public class OrderHandler implements HttpHandler {
 
         if (!rateLimiter.allowRequest(clientIp)) {
             Logger.warn("Rate limit exceeded for client: %s", clientIp);
-            sendError(exchange, 429, "Too Many Requests");
+            HttpUtils.sendError(exchange, 429, "Too Many Requests");
             return;
         }
 
@@ -71,7 +69,7 @@ public class OrderHandler implements HttpHandler {
                 switch (method) {
                     case "GET" -> handleGetOrder(exchange, orderId);
                     case "DELETE" -> handleDeleteOrder(exchange, orderId);
-                    default -> sendError(exchange, 405, "Method not allowed");
+                    default -> HttpUtils.sendMethodNotAllowed(exchange);
                 }
                 return;
             }
@@ -85,7 +83,7 @@ public class OrderHandler implements HttpHandler {
                 } else if (method.equals("GET")) {
                     handleGetPancakes(exchange, orderId);
                 } else {
-                    sendError(exchange, 405, "Method not allowed");
+                    HttpUtils.sendMethodNotAllowed(exchange);
                 }
                 return;
             }
@@ -98,7 +96,7 @@ public class OrderHandler implements HttpHandler {
                 if (method.equals("DELETE")) {
                     handleDeletePancake(exchange, orderId, pancakeId);
                 } else {
-                    sendError(exchange, 405, "Method not allowed");
+                    HttpUtils.sendMethodNotAllowed(exchange);
                 }
                 return;
             }
@@ -111,7 +109,7 @@ public class OrderHandler implements HttpHandler {
                 switch (method) {
                     case "POST" -> handleAddIngredient(exchange, orderId, pancakeId);
                     case "GET" -> handleGetIngredients(exchange, orderId, pancakeId);
-                    default -> sendError(exchange, 405, "Method not allowed");
+                    default -> HttpUtils.sendMethodNotAllowed(exchange);
                 }
                 return;
             }
@@ -125,25 +123,25 @@ public class OrderHandler implements HttpHandler {
                 if (method.equals("DELETE")) {
                     handleRemoveIngredient(exchange, orderId, pancakeId, ingredientId);
                 } else {
-                    sendError(exchange, 405, "Method not allowed");
+                    HttpUtils.sendMethodNotAllowed(exchange);
                 }
                 return;
             }
 
-            sendError(exchange, 404, "Not Found");
+            HttpUtils.sendError(exchange, 404, "Not Found");
 
         } catch (ValidationException e) {
             Logger.warn("Validation error: %s", e.getMessage());
-            sendError(exchange, e.getStatusCode(), e.getMessage());
+            HttpUtils.sendError(exchange, e.getStatusCode(), e.getMessage());
         } catch (IllegalArgumentException e) {
             Logger.warn("Invalid request: %s", e.getMessage());
-            sendError(exchange, 400, "Invalid request: " + e.getMessage());
+            HttpUtils.sendBadRequest(exchange, "Invalid request: " + e.getMessage());
         } catch (IllegalStateException e) {
             Logger.warn("Invalid state: %s", e.getMessage());
-            sendError(exchange, 400, e.getMessage());
+            HttpUtils.sendBadRequest(exchange, e.getMessage());
         } catch (Exception e) {
             Logger.error("Unexpected error processing request %s %s", e, method, path);
-            sendError(exchange, 500, "Internal Server Error");
+            HttpUtils.sendInternalServerError(exchange, "Internal Server Error");
         } finally {
             exchange.close();
         }
@@ -154,131 +152,113 @@ public class OrderHandler implements HttpHandler {
         try {
             RequestValidator.validateCreateOrder(request);
             Order order = orderService.createOrder(request.building(), request.room());
-            sendJson(exchange, 201, OrderResponse.from(order));
+            HttpUtils.sendJson(exchange, 201, OrderResponse.from(order));
         } catch (ValidationException e) {
-            sendError(exchange, 400, e.getMessage());
+            HttpUtils.sendBadRequest(exchange, e.getMessage());
         }
     }
 
     private void handleGetOrder(HttpExchange exchange, UUID orderId) throws IOException {
         Optional<Order> order = orderService.getOrder(orderId);
         if (order.isEmpty()) {
-            sendError(exchange, 404, "Order not found");
+            HttpUtils.sendNotFound(exchange, "Order");
             return;
         }
-        sendJson(exchange, 200, OrderResponse.from(order.get()));
+        HttpUtils.sendJson(exchange, 200, OrderResponse.from(order.get()));
     }
 
     private void handleGetAllOrders(HttpExchange exchange) throws IOException {
         List<OrderResponse> orders = orderService.getAllOrders().stream()
                 .map(OrderResponse::from)
                 .toList();
-        sendJson(exchange, 200, orders);
+        HttpUtils.sendJson(exchange, 200, orders);
     }
 
     private void handleDeleteOrder(HttpExchange exchange, UUID orderId) throws IOException {
         if (orderService.isOrderNotFound(orderId)) {
-            sendError(exchange, 404, "Order not found");
+            HttpUtils.sendNotFound(exchange, "Order");
             return;
         }
         orderService.cancelOrder(orderId);
-        exchange.sendResponseHeaders(204, -1);
+        HttpUtils.sendNoContent(exchange);
     }
 
     private void handleCreatePancake(HttpExchange exchange, UUID orderId) throws IOException {
         if (orderService.isOrderNotFound(orderId)) {
-            sendError(exchange, 404, "Order not found");
+            HttpUtils.sendNotFound(exchange, "Order");
             return;
         }
         try {
             UUID pancakeId = pancakeService.createPancake(orderId);
             Pancake pancake = pancakeService.getPancake(orderId, pancakeId)
                     .orElseThrow(() -> new IllegalStateException("Failed to create pancake"));
-            sendJson(exchange, 201, PancakeResponse.from(pancake));
+            HttpUtils.sendJson(exchange, 201, PancakeResponse.from(pancake));
         } catch (IllegalStateException e) {
-            sendError(exchange, 400, e.getMessage());
+            HttpUtils.sendBadRequest(exchange, e.getMessage());
         }
     }
 
     private void handleGetPancakes(HttpExchange exchange, UUID orderId) throws IOException {
         if (orderService.isOrderNotFound(orderId)) {
-            sendError(exchange, 404, "Order not found");
+            HttpUtils.sendNotFound(exchange, "Order");
             return;
         }
         List<PancakeResponse> pancakes = pancakeService.getPancakesByOrder(orderId).stream()
                 .map(PancakeResponse::from)
                 .toList();
-        sendJson(exchange, 200, pancakes);
+        HttpUtils.sendJson(exchange, 200, pancakes);
     }
 
     private void handleDeletePancake(HttpExchange exchange, UUID orderId, UUID pancakeId) throws IOException {
         if (orderService.isOrderNotFound(orderId)) {
-            sendError(exchange, 404, "Order not found");
+            HttpUtils.sendNotFound(exchange, "Order");
             return;
         }
         pancakeService.removePancake(orderId, pancakeId);
-        exchange.sendResponseHeaders(204, -1);
+        HttpUtils.sendNoContent(exchange);
     }
 
     private void handleAddIngredient(HttpExchange exchange, UUID orderId, UUID pancakeId) throws IOException {
         IngredientRequest request = JsonUtil.deserialize(exchange.getRequestBody(), IngredientRequest.class);
 
         if (orderService.isOrderNotFound(orderId)) {
-            sendError(exchange, 404, "Order not found");
+            HttpUtils.sendNotFound(exchange, "Order");
             return;
         }
 
         Optional<Pancake> pancake = pancakeService.getPancake(orderId, pancakeId);
         if (pancake.isEmpty()) {
-            sendError(exchange, 404, "Pancake not found");
+            HttpUtils.sendNotFound(exchange, "Pancake");
             return;
         }
 
-        RequestValidator.validateIngredient(request);  // This might throw ValidationException
+        RequestValidator.validateIngredient(request);
 
-        // Create the ingredient instance first
         Ingredient ingredient = new Ingredient(request.name());
-
-        // Pass the ingredient to the service and get the same instance back
         Ingredient addedIngredient = pancakeService.addIngredientToPancake(orderId, pancakeId, ingredient);
 
-        sendJson(exchange, 201, IngredientResponse.from(addedIngredient));
+        HttpUtils.sendJson(exchange, 201, IngredientResponse.from(addedIngredient));
     }
 
     private void handleGetIngredients(HttpExchange exchange, UUID orderId, UUID pancakeId) throws IOException {
         Optional<Pancake> pancake = pancakeService.getPancake(orderId, pancakeId);
         if (pancake.isEmpty()) {
-            sendError(exchange, 404, "Pancake not found");
+            HttpUtils.sendNotFound(exchange, "Pancake");
             return;
         }
 
         List<IngredientResponse> ingredients = pancake.get().ingredients().stream()
                 .map(IngredientResponse::from)
                 .toList();
-        sendJson(exchange, 200, ingredients);
+        HttpUtils.sendJson(exchange, 200, ingredients);
     }
 
     private void handleRemoveIngredient(HttpExchange exchange, UUID orderId, UUID pancakeId, UUID ingredientId) throws IOException {
         if (orderService.isOrderNotFound(orderId)) {
-            sendError(exchange, 404, "Order not found");
+            HttpUtils.sendNotFound(exchange, "Order");
             return;
         }
         pancakeService.removeIngredientFromPancake(orderId, pancakeId, ingredientId);
-        exchange.sendResponseHeaders(204, -1);
-    }
-
-
-    private void sendJson(HttpExchange exchange, int statusCode, Object response) throws IOException {
-        byte[] responseBody = JsonUtil.serialize(response);
-        exchange.getResponseHeaders().set("Content-Type", "application/json");
-        exchange.sendResponseHeaders(statusCode, responseBody.length);
-        try (OutputStream os = exchange.getResponseBody()) {
-            os.write(responseBody);
-        }
-    }
-
-    private void sendError(HttpExchange exchange, int statusCode, String message) throws IOException {
-        Map<String, String> error = Map.of("error", message);
-        sendJson(exchange, statusCode, error);
+        HttpUtils.sendNoContent(exchange);
     }
 }
