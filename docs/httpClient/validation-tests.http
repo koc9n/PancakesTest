@@ -1,0 +1,116 @@
+### Validation & Error Handling Tests
+### Base URL: http://localhost:8080/api
+
+### 1. Create Order with Invalid Building (Negative)
+POST http://localhost:8080/api/orders
+Content-Type: application/json
+
+{
+  "building": -1,
+  "room": 20
+}
+
+> {%
+    client.test("Invalid building validation", function () {
+        client.assert(response.status === 400, "Response status is not 400");
+        client.assert(response.body.error.includes("Building number must be positive"), "Error message incorrect");
+    });
+%}
+
+###
+
+### 2. Create Order with Invalid Room (Zero)
+POST http://localhost:8080/api/orders
+Content-Type: application/json
+
+{
+  "building": 1,
+  "room": 0
+}
+
+> {%
+    client.test("Invalid room validation", function () {
+        client.assert(response.status === 400, "Response status is not 400");
+        client.assert(response.body.error.includes("Room number must be positive"), "Error message incorrect");
+    });
+%}
+
+###
+
+### 3. Add Empty Ingredient Name
+POST http://localhost:8080/api/orders/{{orderId}}/pancakes/{{pancakeId}}/ingredients
+Content-Type: application/json
+
+{
+  "name": ""
+}
+
+> {%
+    client.test("Empty ingredient name validation", function () {
+        client.assert(response.status === 400, "Response status is not 400");
+        client.assert(response.body.error.includes("Ingredient name cannot be empty"), "Error message incorrect");
+    });
+%}
+
+###
+
+### 4. Add Too Long Ingredient Name
+POST http://localhost:8080/api/orders/{{orderId}}/pancakes/{{pancakeId}}/ingredients
+Content-Type: application/json
+
+{
+  "name": "this is a very very very very very very very very long ingredient name that exceeds the maximum allowed length"
+}
+
+> {%
+    client.test("Long ingredient name validation", function () {
+        client.assert(response.status === 400, "Response status is not 400");
+        client.assert(response.body.error.includes("Ingredient name too long"), "Error message incorrect");
+    });
+%}
+
+###
+
+### 5. Get Non-existent Order
+GET http://localhost:8080/api/orders/00000000-0000-0000-0000-000000000000
+
+> {%
+    client.test("Non-existent order", function () {
+        client.assert(response.status === 404, "Response status is not 404");
+        client.assert(response.body.error.includes("not found"), "Error message incorrect");
+    });
+%}
+
+###
+
+### 6. Create Pancake for Non-existent Order
+POST http://localhost:8080/api/orders/00000000-0000-0000-0000-000000000000/pancakes
+Content-Type: application/json
+
+{}
+
+> {%
+    client.test("Pancake for non-existent order", function () {
+        client.assert(response.status === 404, "Response status is not 404");
+        client.assert(response.body.error.includes("not found"), "Error message incorrect");
+    });
+%}
+
+###
+
+### 7. Add Ingredient to Non-existent Pancake
+POST http://localhost:8080/api/orders/{{orderId}}/pancakes/00000000-0000-0000-0000-000000000000/ingredients
+Content-Type: application/json
+
+{
+  "name": "chocolate"
+}
+
+> {%
+    client.test("Ingredient for non-existent pancake", function () {
+        client.assert(response.status === 404, "Response status is not 404");
+        client.assert(response.body.error.includes("not found"), "Error message incorrect");
+    });
+%}
+
+###

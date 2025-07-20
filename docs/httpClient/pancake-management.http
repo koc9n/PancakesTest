@@ -1,0 +1,41 @@
+### Pancake Management APIs
+### Base URL: http://localhost:8080/api
+
+### 1. Create Pancake
+POST http://localhost:8080/api/orders/{{orderId}}/pancakes
+Content-Type: application/json
+
+{}
+
+> {%
+    client.test("Create pancake successful", function () {
+        client.assert(response.status === 201, "Response status is not 201");
+        client.assert(response.body.id !== undefined, "Pancake ID not found");
+    });
+    client.global.set("pancakeId", response.body.id);
+%}
+
+###
+
+### 2. Get All Pancakes for Order
+GET http://localhost:8080/api/orders/{{orderId}}/pancakes
+
+> {%
+    client.test("Get pancakes successful", function () {
+        client.assert(response.status === 200, "Response status is not 200");
+        client.assert(Array.isArray(response.body), "Response is not an array");
+    });
+%}
+
+###
+
+### 3. Delete Pancake
+DELETE http://localhost:8080/api/orders/{{orderId}}/pancakes/{{pancakeId}}
+
+> {%
+    client.test("Delete pancake successful", function () {
+        client.assert(response.status === 204, "Response status is not 204");
+    });
+%}
+
+###

@@ -1,0 +1,80 @@
+### Order Management APIs
+### Base URL: http://localhost:8080/api
+
+### 1. Create Order
+POST http://localhost:8080/api/orders
+Content-Type: application/json
+
+{
+  "building": 10,
+  "room": 20
+}
+
+> {%
+    client.test("Create order successful", function () {
+        client.assert(response.status === 201, "Response status is not 201");
+        client.assert(response.body.orderId !== undefined, "Order ID not found");
+    });
+    client.global.set("orderId", response.body.orderId);
+%}
+
+###
+
+### 2. Get All Orders
+GET http://localhost:8080/api/orders
+
+> {%
+    client.test("Get all orders successful", function () {
+        client.assert(response.status === 200, "Response status is not 200");
+        client.assert(Array.isArray(response.body), "Response is not an array");
+    });
+%}
+
+###
+
+### 3. Get All Orders with State Filter (OPEN)
+GET http://localhost:8080/api/orders?state=OPEN
+
+> {%
+    client.test("Get orders by state successful", function () {
+        client.assert(response.status === 200, "Response status is not 200");
+        client.assert(Array.isArray(response.body), "Response is not an array");
+    });
+%}
+
+###
+
+### 4. Get All Orders with State Filter (COMPLETED)
+GET http://localhost:8080/api/orders?state=COMPLETED
+
+###
+
+### 5. Get All Orders with State Filter (PREPARED)
+GET http://localhost:8080/api/orders?state=PREPARED
+
+###
+
+### 6. Get Specific Order
+GET http://localhost:8080/api/orders/{{orderId}}
+
+> {%
+    client.test("Get specific order successful", function () {
+        client.assert(response.status === 200, "Response status is not 200");
+        client.assert(response.body.orderId !== undefined, "Order ID not found");
+        client.assert(response.body.building === 10, "Building number incorrect");
+        client.assert(response.body.room === 20, "Room number incorrect");
+    });
+%}
+
+###
+
+### 7. Delete Order
+DELETE http://localhost:8080/api/orders/{{orderId}}
+
+> {%
+    client.test("Delete order successful", function () {
+        client.assert(response.status === 204, "Response status is not 204");
+    });
+%}
+
+###

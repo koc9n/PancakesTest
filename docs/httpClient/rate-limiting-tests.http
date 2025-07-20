@@ -1,0 +1,48 @@
+### Rate Limiting Tests
+### Base URL: http://localhost:8080/api
+
+### 1. Normal Request
+GET http://localhost:8080/api/orders
+
+> {%
+    client.test("Normal request", function () {
+        client.assert(response.status === 200, "Response status is not 200");
+    });
+%}
+
+###
+
+### 2. Rapid Request 1
+GET http://localhost:8080/api/orders
+
+###
+
+### 3. Rapid Request 2
+GET http://localhost:8080/api/orders
+
+###
+
+### 4. Rapid Request 3
+GET http://localhost:8080/api/orders
+
+###
+
+### 5. Rapid Request 4
+GET http://localhost:8080/api/orders
+
+###
+
+### 6. Rapid Request 5 (Should trigger rate limit)
+GET http://localhost:8080/api/orders
+
+> {%
+    client.test("Rate limiting check", function () {
+        // Should succeed for normal usage, fail with 429 if rate limit exceeded
+        client.assert(response.status === 200 || response.status === 429, "Unexpected status code");
+        if (response.status === 429) {
+            client.assert(response.body.error.includes("Too Many Requests"), "Rate limit error message incorrect");
+        }
+    });
+%}
+
+###

@@ -1,0 +1,69 @@
+### Ingredient Management APIs
+### Base URL: http://localhost:8080/api
+
+### 1. Add Ingredient to Pancake (Dark Chocolate)
+POST http://localhost:8080/api/orders/{{orderId}}/pancakes/{{pancakeId}}/ingredients
+Content-Type: application/json
+
+{
+  "name": "dark chocolate"
+}
+
+> {%
+    client.test("Add ingredient successful", function () {
+        client.assert(response.status === 201, "Response status is not 201");
+        client.assert(response.body.ingredientId !== undefined, "Ingredient ID not found");
+    });
+    client.global.set("ingredientId", response.body.ingredientId);
+%}
+
+###
+
+### 2. Add Ingredient to Pancake (Maple Syrup)
+POST http://localhost:8080/api/orders/{{orderId}}/pancakes/{{pancakeId}}/ingredients
+Content-Type: application/json
+
+{
+  "name": "maple syrup"
+}
+
+> {%
+    client.test("Add second ingredient successful", function () {
+        client.assert(response.status === 201, "Response status is not 201");
+        client.assert(response.body.ingredientId !== undefined, "Ingredient ID not found");
+    });
+    client.global.set("ingredientId2", response.body.ingredientId);
+%}
+
+###
+
+### 3. Add Ingredient to Pancake (Blueberries)
+POST http://localhost:8080/api/orders/{{orderId}}/pancakes/{{pancakeId}}/ingredients
+Content-Type: application/json
+
+{
+  "name": "blueberries"
+}
+
+###
+
+### 4. Add Ingredient to Pancake (Whipped Cream)
+POST http://localhost:8080/api/orders/{{orderId}}/pancakes/{{pancakeId}}/ingredients
+Content-Type: application/json
+
+{
+  "name": "whipped cream"
+}
+
+###
+
+### 5. Remove Ingredient from Pancake
+DELETE http://localhost:8080/api/orders/{{orderId}}/pancakes/{{pancakeId}}/ingredients/{{ingredientId}}
+
+> {%
+    client.test("Remove ingredient successful", function () {
+        client.assert(response.status === 204, "Response status is not 204");
+    });
+%}
+
+###

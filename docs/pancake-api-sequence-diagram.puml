@@ -1,4 +1,4 @@
-@startuml PancakeLab API Sequence Diagram
+@startuml PancakeLab_API_Sequence_Diagram
 
 !theme plain
 skinparam sequenceMessageAlign center
@@ -23,7 +23,8 @@ participant "HttpUtils" as Utils
 participant "JsonUtil" as JSON
 
 == Order Creation Flow ==
-Client -> Server: POST /api/orders\n{"building": 10, "room": 20}
+Client -> Server: POST /api/orders
+note right: {"building": 10, "room": 20}
 activate Server
 
 Server -> Timeout: handle(exchange)
@@ -62,7 +63,8 @@ OrderSvc --> OrderCtrl: Order
 OrderCtrl -> Utils: sendJson(exchange, 201, OrderResponse)
 Utils -> JSON: toJson(OrderResponse)
 JSON --> Utils: JSON string
-Utils --> Client: 201 Created\n{"orderId": "uuid", ...}
+Utils --> Client: 201 Created
+note right: {"orderId": "uuid", ...}
 
 deactivate OrderCtrl
 deactivate OrderSvc
@@ -72,7 +74,8 @@ deactivate Timeout
 deactivate Server
 
 == Pancake Creation Flow ==
-Client -> Server: POST /api/orders/{orderId}/pancakes\n{}
+Client -> Server: POST /api/orders/{orderId}/pancakes
+note right: {}
 activate Server
 
 Server -> Timeout: handle(exchange)
@@ -88,7 +91,8 @@ API -> Router: handleRequest(exchange)
 activate Router
 
 Router -> Router: match pattern "/api/orders/{orderId}/pancakes"
-Router -> Router: extractPathParams() → {orderId: "uuid"}
+Router -> Router: extractPathParams()
+note right: {orderId: "uuid"}
 Router -> PancakeCtrl: createPancake(exchange, pathParams)
 activate PancakeCtrl
 
@@ -111,8 +115,9 @@ deactivate Order
 
 PancakeSvc --> PancakeCtrl: pancakeId
 
-PancakeCtrl -> Utils: sendJson(exchange, 201, {"id": pancakeId})
-Utils --> Client: 201 Created\n{"id": "pancake-uuid"}
+PancakeCtrl -> Utils: sendJson(exchange, 201, response)
+Utils --> Client: 201 Created
+note right: {"id": "pancake-uuid"}
 
 deactivate PancakeCtrl
 deactivate PancakeSvc
@@ -122,7 +127,8 @@ deactivate Timeout
 deactivate Server
 
 == Ingredient Addition Flow ==
-Client -> Server: POST /api/orders/{orderId}/pancakes/{pancakeId}/ingredients\n{"name": "chocolate"}
+Client -> Server: POST /api/orders/{orderId}/pancakes/{pancakeId}/ingredients
+note right: {"name": "chocolate"}
 activate Server
 
 Server -> Timeout: handle(exchange)
@@ -138,7 +144,8 @@ API -> Router: handleRequest(exchange)
 activate Router
 
 Router -> Router: match pattern with named parameters
-Router -> Router: extractPathParams() → {orderId: "uuid", pancakeId: "uuid"}
+Router -> Router: extractPathParams()
+note right: {orderId: "uuid", pancakeId: "uuid"}
 Router -> PancakeCtrl: addIngredient(exchange, pathParams)
 activate PancakeCtrl
 
@@ -146,9 +153,10 @@ PancakeCtrl -> JSON: fromJson(exchange, AddIngredientRequest.class)
 JSON --> PancakeCtrl: AddIngredientRequest
 
 PancakeCtrl -> Validator: validateAddIngredient(request)
+
 alt validation fails
     Validator -> Validator: throw ValidationException
-    PancakeCtrl -> Utils: sendError(exchange, 400, "Ingredient name cannot be empty")
+    PancakeCtrl -> Utils: sendError(exchange, 400, message)
     Utils --> Client: 400 Bad Request
 else validation passes
     Validator --> PancakeCtrl: validation passed
@@ -173,8 +181,9 @@ else validation passes
 
     PancakeSvc --> PancakeCtrl: Ingredient
 
-    PancakeCtrl -> Utils: sendJson(exchange, 201, {"ingredientId": ingredientId})
-    Utils --> Client: 201 Created\n{"ingredientId": "ingredient-uuid"}
+    PancakeCtrl -> Utils: sendJson(exchange, 201, response)
+    Utils --> Client: 201 Created
+    note right: {"ingredientId": "ingredient-uuid"}
 end
 
 deactivate PancakeCtrl
@@ -185,7 +194,8 @@ deactivate Timeout
 deactivate Server
 
 == Error Handling Flow ==
-Client -> Server: POST /api/orders\n{"building": -1, "room": 20}
+Client -> Server: POST /api/orders
+note right: {"building": -1, "room": 20}
 activate Server
 
 Server -> Timeout: handle(exchange)
@@ -204,12 +214,20 @@ OrderCtrl -> JSON: fromJson(exchange, CreateOrderRequest.class)
 JSON --> OrderCtrl: CreateOrderRequest
 
 OrderCtrl -> Validator: validateCreateOrder(request)
-Validator -> Validator: throw ValidationException("Building number must be positive", 400)
+Validator -> Validator: throw ValidationException
+note right: "Building number must be positive"
 
-OrderCtrl -> Utils: sendError(exchange, 400, "Building number must be positive")
+OrderCtrl -> Utils: sendError(exchange, 400, message)
 Utils -> JSON: toJson(ErrorResponse)
 JSON --> Utils: JSON string
-Utils --> Client: 400 Bad Request\n{"status": 400, "error": "Building number must be positive", "timestamp": 1234567890}
+Utils --> Client: 400 Bad Request
+note right
+  {
+    "status": 400,
+    "error": "Building number must be positive",
+    "timestamp": 1234567890
+  }
+end note
 
 deactivate OrderCtrl
 deactivate Router

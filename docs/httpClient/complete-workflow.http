@@ -1,0 +1,163 @@
+### Complete Workflow Test
+### Base URL: http://localhost:8080/api
+### This file demonstrates a complete end-to-end workflow
+
+### 1. Create Order for Workflow
+POST http://localhost:8080/api/orders
+Content-Type: application/json
+
+{
+  "building": 5,
+  "room": 15
+}
+
+> {%
+    client.test("Workflow: Create order", function () {
+        client.assert(response.status === 201, "Create order failed");
+        client.assert(response.body.orderId !== undefined, "Order ID not found");
+    });
+    client.global.set("workflowOrderId", response.body.orderId);
+%}
+
+###
+
+### 2. Create First Pancake
+POST http://localhost:8080/api/orders/{{workflowOrderId}}/pancakes
+Content-Type: application/json
+
+{}
+
+> {%
+    client.test("Workflow: Create first pancake", function () {
+        client.assert(response.status === 201, "Create pancake failed");
+        client.assert(response.body.id !== undefined, "Pancake ID not found");
+    });
+    client.global.set("workflowPancakeId1", response.body.id);
+%}
+
+###
+
+### 3. Create Second Pancake
+POST http://localhost:8080/api/orders/{{workflowOrderId}}/pancakes
+Content-Type: application/json
+
+{}
+
+> {%
+    client.test("Workflow: Create second pancake", function () {
+        client.assert(response.status === 201, "Create pancake failed");
+    });
+    client.global.set("workflowPancakeId2", response.body.id);
+%}
+
+###
+
+### 4. Add Ingredients to First Pancake
+POST http://localhost:8080/api/orders/{{workflowOrderId}}/pancakes/{{workflowPancakeId1}}/ingredients
+Content-Type: application/json
+
+{
+  "name": "blueberries"
+}
+
+###
+
+POST http://localhost:8080/api/orders/{{workflowOrderId}}/pancakes/{{workflowPancakeId1}}/ingredients
+Content-Type: application/json
+
+{
+  "name": "whipped cream"
+}
+
+###
+
+POST http://localhost:8080/api/orders/{{workflowOrderId}}/pancakes/{{workflowPancakeId1}}/ingredients
+Content-Type: application/json
+
+{
+  "name": "maple syrup"
+}
+
+###
+
+### 5. Add Ingredients to Second Pancake
+POST http://localhost:8080/api/orders/{{workflowOrderId}}/pancakes/{{workflowPancakeId2}}/ingredients
+Content-Type: application/json
+
+{
+  "name": "dark chocolate"
+}
+
+###
+
+POST http://localhost:8080/api/orders/{{workflowOrderId}}/pancakes/{{workflowPancakeId2}}/ingredients
+Content-Type: application/json
+
+{
+  "name": "strawberries"
+}
+
+###
+
+### 6. Get Complete Order with All Pancakes and Ingredients
+GET http://localhost:8080/api/orders/{{workflowOrderId}}
+
+> {%
+    client.test("Workflow: Get complete order", function () {
+        client.assert(response.status === 200, "Get order failed");
+        client.assert(response.body.pancakes.length === 2, "Should have 2 pancakes");
+        client.assert(response.body.pancakes[0].ingredients.length >= 2, "First pancake should have ingredients");
+        client.assert(response.body.pancakes[1].ingredients.length >= 2, "Second pancake should have ingredients");
+        client.assert(response.body.state === "OPEN", "Order should be in OPEN state");
+    });
+%}
+
+###
+
+### 7. Complete the Order
+POST http://localhost:8080/api/orders/{{workflowOrderId}}/complete
+
+> {%
+    client.test("Workflow: Complete order", function () {
+        client.assert(response.status === 200, "Complete order failed");
+    });
+%}
+
+###
+
+### 8. Prepare the Order
+POST http://localhost:8080/api/orders/{{workflowOrderId}}/prepare
+
+> {%
+    client.test("Workflow: Prepare order", function () {
+        client.assert(response.status === 200, "Prepare order failed");
+    });
+%}
+
+###
+
+### 9. Start Delivery
+POST http://localhost:8080/api/orders/{{workflowOrderId}}/deliver
+
+> {%
+    client.test("Workflow: Start delivery", function () {
+        client.assert(response.status === 200, "Start delivery failed");
+    });
+%}
+
+###
+
+### 10. Verify Order State (Optional - Order might be removed after delivery)
+GET http://localhost:8080/api/orders/{{workflowOrderId}}
+
+> {%
+    client.test("Workflow: Check final state", function () {
+        // Order might be removed from active orders after delivery
+        client.assert(response.status === 200 || response.status === 404, "Unexpected status");
+        if (response.status === 200) {
+            client.assert(response.body.state === "OUT_FOR_DELIVERY", "Order should be out for delivery");
+        }
+    });
+%}
+
+###
