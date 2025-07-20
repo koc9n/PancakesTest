@@ -1,5 +1,6 @@
 package org.pancakelab.service;
 
+import org.pancakelab.model.Ingredient;
 import org.pancakelab.model.Pancake;
 
 import java.util.List;
@@ -17,7 +18,7 @@ public interface PancakeService {
     void removePancake(UUID orderId, UUID pancakeId);
 
     // Ingredient operations
-    void addIngredientToPancake(UUID orderId, UUID pancakeId, String ingredientName);
+    Ingredient addIngredientToPancake(UUID orderId, UUID pancakeId, Ingredient ingredient);
 
     void removeIngredientFromPancake(UUID orderId, UUID pancakeId, UUID ingredientId);
 }

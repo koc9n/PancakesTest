@@ -11,6 +11,7 @@ import org.pancakelab.model.Pancake;
 import org.pancakelab.service.OrderService;
 import org.pancakelab.service.PancakeService;
 import org.pancakelab.service.impl.PancakeServiceImpl;
+import org.pancakelab.util.Logger;
 
 import java.io.IOException;
 import java.io.OutputStream;
@@ -42,16 +43,18 @@ public class OrderHandler implements HttpHandler {
     @Override
     public void handle(HttpExchange exchange) throws IOException {
         String clientIp = exchange.getRemoteAddress().getAddress().getHostAddress();
+        String path = exchange.getRequestURI().getPath();
+        String method = exchange.getRequestMethod();
+
+        Logger.info("Incoming request: %s %s from %s", method, path, clientIp);
 
         if (!rateLimiter.allowRequest(clientIp)) {
+            Logger.warn("Rate limit exceeded for client: %s", clientIp);
             sendError(exchange, 429, "Too Many Requests");
             return;
         }
 
         try {
-            String path = exchange.getRequestURI().getPath();
-            String method = exchange.getRequestMethod();
-
             if (path.equals("/api/orders") && method.equals("POST")) {
                 handleCreateOrder(exchange);
                 return;
@@ -130,13 +133,16 @@ public class OrderHandler implements HttpHandler {
             sendError(exchange, 404, "Not Found");
 
         } catch (ValidationException e) {
+            Logger.warn("Validation error: %s", e.getMessage());
             sendError(exchange, e.getStatusCode(), e.getMessage());
         } catch (IllegalArgumentException e) {
+            Logger.warn("Invalid request: %s", e.getMessage());
             sendError(exchange, 400, "Invalid request: " + e.getMessage());
         } catch (IllegalStateException e) {
+            Logger.warn("Invalid state: %s", e.getMessage());
             sendError(exchange, 400, e.getMessage());
         } catch (Exception e) {
-            e.printStackTrace();
+            Logger.error("Unexpected error processing request %s %s", e, method, path);
             sendError(exchange, 500, "Internal Server Error");
         } finally {
             exchange.close();
@@ -230,15 +236,11 @@ public class OrderHandler implements HttpHandler {
 
         RequestValidator.validateIngredient(request);  // This might throw ValidationException
 
-        pancakeService.addIngredientToPancake(orderId, pancakeId, request.name());
+        // Create the ingredient instance first
+        Ingredient ingredient = new Ingredient(request.name());
 
-        // Get the updated pancake to return the latest ingredient
-        Optional<Pancake> updatedPancake = pancakeService.getPancake(orderId, pancakeId);
-        Ingredient addedIngredient = updatedPancake.get().ingredients()
-                .stream()
-                .filter(i -> i.getName().equals(request.name()))
-                .findFirst()
-                .orElseThrow(() -> new IllegalStateException("Failed to add ingredient"));
+        // Pass the ingredient to the service and get the same instance back
+        Ingredient addedIngredient = pancakeService.addIngredientToPancake(orderId, pancakeId, ingredient);
 
         sendJson(exchange, 201, IngredientResponse.from(addedIngredient));
     }

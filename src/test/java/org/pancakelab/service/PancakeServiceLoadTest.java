@@ -3,6 +3,7 @@ package org.pancakelab.service;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
+import org.pancakelab.model.Ingredient;
 import org.pancakelab.model.Order;
 import org.pancakelab.model.OrderState;
 import org.pancakelab.model.Pancake;
@@ -153,7 +154,7 @@ public class PancakeServiceLoadTest {
                 if (!pancakes.isEmpty()) {
                     Pancake pancake = pancakes.get(random.nextInt(pancakes.size()));
                     String ingredient = availableIngredients.get(random.nextInt(availableIngredients.size()));
-                    pancakeService.addIngredientToPancake(orderId, pancake.getId(), ingredient);
+                    pancakeService.addIngredientToPancake(orderId, pancake.getId(), new Ingredient(ingredient));
                 }
             } catch (IllegalStateException e) {
                 // Order might have been completed or cancelled

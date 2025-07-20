@@ -16,11 +16,11 @@ import static org.junit.jupiter.api.Assertions.*;
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 @TestMethodOrder(MethodOrderer.OrderAnnotation.class)
 public class PancakeServiceTest {
-    private static final String DARK_CHOCOLATE = "Dark Chocolate";
-    private PancakeService pancakeService;
-    private static final String MILK_CHOCOLATE = "Milk Chocolate";
-    private static final String HAZELNUTS = "Hazelnuts";
+    private static final Ingredient DARK_CHOCOLATE = new Ingredient("Dark Chocolate");
+    private static final Ingredient MILK_CHOCOLATE = new Ingredient("Milk Chocolate");
+    private static final Ingredient HAZELNUTS = new Ingredient("Hazelnuts");
     private OrderService orderService;
+    private PancakeService pancakeService;
     private Order testOrder;
 
     @BeforeAll
@@ -168,12 +168,8 @@ public class PancakeServiceTest {
         orderService.completeOrder(testOrder.getId());
 
         // Try to modify after completion
-        assertThrows(IllegalStateException.class, () -> {
-            pancakeService.createPancake(testOrder.getId());
-        });
+        assertThrows(IllegalStateException.class, () -> pancakeService.createPancake(testOrder.getId()));
 
-        assertThrows(IllegalStateException.class, () -> {
-            pancakeService.addIngredientToPancake(testOrder.getId(), pancakeId, DARK_CHOCOLATE);
-        });
+        assertThrows(IllegalStateException.class, () -> pancakeService.addIngredientToPancake(testOrder.getId(), pancakeId, DARK_CHOCOLATE));
     }
 }

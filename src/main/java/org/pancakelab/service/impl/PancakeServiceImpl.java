@@ -56,7 +56,7 @@ public class PancakeServiceImpl implements PancakeService {
     }
 
     @Override
-    public void addIngredientToPancake(UUID orderId, UUID pancakeId, String ingredientName) {
+    public Ingredient addIngredientToPancake(UUID orderId, UUID pancakeId, Ingredient ingredient) {
         Order order = orderService.getOrder(orderId)
                 .orElseThrow(() -> new IllegalArgumentException("Order not found"));
 
@@ -67,11 +67,12 @@ public class PancakeServiceImpl implements PancakeService {
         Pancake pancake = order.getPancake(pancakeId)
                 .orElseThrow(() -> new IllegalArgumentException("Pancake not found"));
 
-        Ingredient ingredient = new Ingredient(ingredientName);
         pancake.addIngredient(ingredient);
 
         // Log ingredient addition
         OrderLogServiceImpl.logAddIngredient(order, pancake, ingredient);
+
+        return ingredient;
     }
 
     @Override

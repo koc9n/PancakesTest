@@ -1,6 +1,7 @@
 package org.pancakelab.service;
 
 import org.junit.jupiter.api.*;
+import org.pancakelab.model.Ingredient;
 import org.pancakelab.model.Order;
 import org.pancakelab.model.OrderState;
 import org.pancakelab.service.impl.OrderServiceImpl;
@@ -13,8 +14,8 @@ import static org.junit.jupiter.api.Assertions.*;
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 @TestMethodOrder(MethodOrderer.OrderAnnotation.class)
 public class PancakeLabIntegrationTest {
-    private static final String DARK_CHOCOLATE = "Dark Chocolate";
-    private static final String MILK_CHOCOLATE = "Milk Chocolate";
+    private static final Ingredient DARK_CHOCOLATE = new Ingredient("Dark Chocolate");
+    private static final Ingredient MILK_CHOCOLATE = new Ingredient("Milk Chocolate");
     private OrderService orderService;
     private PancakeService pancakeService;
     private Order testOrder;
