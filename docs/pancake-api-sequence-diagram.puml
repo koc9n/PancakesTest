@@ -1,0 +1,28 @@
+@startuml
+actor Client
+Client -> OrderHandler : POST /api/orders
+OrderHandler -> OrderService : createOrder(request)
+OrderService -> Order : new Order()
+OrderService -> OrderLogService : logOrderCreated(order)
+OrderHandler -> Client : 201 Created + OrderResponse
+
+Client -> OrderHandler : POST /api/orders/{orderId}/pancakes
+OrderHandler -> OrderService : getOrder(orderId)
+OrderHandler -> PancakeService : addPancake(orderId, pancakeRequest)
+PancakeService -> Pancake : new Pancake()
+OrderHandler -> Client : 201 Created + PancakeResponse
+
+Client -> OrderHandler : POST /api/orders/{orderId}/pancakes/{pancakeId}/ingredients
+OrderHandler -> OrderService : getOrder(orderId)
+OrderHandler -> PancakeService : getPancake(orderId, pancakeId)
+OrderHandler -> PancakeService : addIngredientToPancake(orderId, pancakeId, ingredientName)
+PancakeService -> Pancake : addIngredient(ingredientName)
+OrderHandler -> Client : 201 Created + IngredientResponse
+
+Client -> OrderHandler : PATCH /api/orders/{orderId}/state
+OrderHandler -> OrderService : getOrder(orderId)
+OrderHandler -> OrderService : changeOrderState(orderId, newState)
+OrderService -> Order : setState(newState)
+OrderService -> OrderLogService : logStateChange(order, newState)
+OrderHandler -> Client : 200 OK + OrderResponse
+@enduml

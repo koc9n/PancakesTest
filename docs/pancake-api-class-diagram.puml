@@ -1,0 +1,48 @@
+@startuml
+class OrderHandler {
+  +handle(HttpExchange)
+}
+class OrderService {
+  +createOrder()
+  +getOrder()
+  +cancelOrder()
+  +completeOrder()
+  +prepareOrder()
+  +startDelivery()
+}
+class PancakeService {
+  +createPancake()
+  +getPancake()
+  +getPancakesByOrder()
+  +removePancake()
+  +addIngredientToPancake()
+  +removeIngredientFromPancake()
+}
+class Order {
+  building: int
+  room: int
+  state: OrderState
+  pancakes: List<Pancake>
+}
+class Pancake {
+  id: UUID
+  ingredients: List<Ingredient>
+}
+class Ingredient {
+  id: UUID
+  name: String
+}
+class OrderResponse
+class PancakeResponse
+class IngredientResponse
+
+OrderHandler --> OrderService
+OrderHandler --> PancakeService
+OrderService --> Order
+Order --> Pancake
+Pancake --> Ingredient
+OrderHandler --> OrderResponse
+OrderHandler --> PancakeResponse
+OrderHandler --> IngredientResponse
+@enduml
+
