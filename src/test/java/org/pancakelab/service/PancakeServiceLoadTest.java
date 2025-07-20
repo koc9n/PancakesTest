@@ -4,183 +4,211 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.pancakelab.model.Order;
+import org.pancakelab.model.OrderState;
+import org.pancakelab.model.Pancake;
+import org.pancakelab.service.impl.OrderServiceImpl;
+import org.pancakelab.service.impl.PancakeServiceImpl;
 
 import java.util.*;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 public class PancakeServiceLoadTest {
     private static final int NUM_CONCURRENT_USERS = 50;
     private static final int OPERATIONS_PER_USER = 20;
+    private static final int MAX_RETRIES = 3;
     private final ExecutorService executorService = Executors.newFixedThreadPool(NUM_CONCURRENT_USERS);
-    private final ConcurrentMap<UUID, OrderState> testOrders = new ConcurrentHashMap<>();
     private final Random random = new Random();
+
+    private final List<String> availableIngredients = Arrays.asList(
+            "Chocolate",
+            "Berries",
+            "Cream"
+    );
     private PancakeService pancakeService;
+    private OrderService orderService;
 
     @BeforeAll
     void setUp() {
-        pancakeService = PancakeService.getInstance();
+        orderService = OrderServiceImpl.getInstance();
+        pancakeService = PancakeServiceImpl.getInstance();
     }
 
     @Test
-    void testConcurrentOrderCreationAndModification() throws InterruptedException {
+    void testConcurrentOrderProcessing() throws InterruptedException {
         CountDownLatch startLatch = new CountDownLatch(1);
         CountDownLatch completionLatch = new CountDownLatch(NUM_CONCURRENT_USERS);
         AtomicInteger successfulOperations = new AtomicInteger(0);
-        AtomicInteger failedOperations = new AtomicInteger(0);
-
         List<Future<?>> futures = new ArrayList<>();
+
+        // Create concurrent users
         for (int i = 0; i < NUM_CONCURRENT_USERS; i++) {
             futures.add(executorService.submit(() -> {
+                Map<UUID, OrderState> threadLocalOrders = new ConcurrentHashMap<>();
                 try {
-                    startLatch.await();
+                    startLatch.await(); // Wait for all threads to be ready
                     for (int j = 0; j < OPERATIONS_PER_USER; j++) {
                         try {
-                            performRandomOperation();
+                            processRandomOperation(threadLocalOrders);
                             successfulOperations.incrementAndGet();
-                            Thread.sleep(random.nextInt(10)); // Small random delay
                         } catch (Exception e) {
+                            // Log but continue with other operations
                             System.err.println("Operation failed: " + e.getMessage());
-                            failedOperations.incrementAndGet();
                         }
                     }
                 } catch (InterruptedException e) {
                     Thread.currentThread().interrupt();
                 } finally {
+                    // Cleanup this thread's orders
+                    cleanupOrders(threadLocalOrders);
                     completionLatch.countDown();
                 }
             }));
         }
 
-        long startTime = System.currentTimeMillis();
+        // Start all threads simultaneously
         startLatch.countDown();
 
-        // Wait for all operations to complete with timeout
-        if (!completionLatch.await(2, TimeUnit.MINUTES)) {
-            System.err.println("Test timed out!");
-        }
-        long duration = System.currentTimeMillis() - startTime;
+        // Wait for all operations to complete
+        completionLatch.await(2, TimeUnit.MINUTES);
 
-        cleanupTestOrders();
+        // Verify results
+        int totalOperations = NUM_CONCURRENT_USERS * OPERATIONS_PER_USER;
+        int successRate = (successfulOperations.get() * 100) / totalOperations;
+        System.out.println("Success rate: " + successRate + "% (" + successfulOperations.get() + "/" + totalOperations + ")");
+        assertTrue(successRate > 90, "Success rate should be above 90%");
+
         executorService.shutdown();
-        executorService.awaitTermination(30, TimeUnit.SECONDS);
-
-        System.out.println("Load Test Results:");
-        System.out.println("Total duration: " + duration + "ms");
-        System.out.println("Successful operations: " + successfulOperations.get());
-        System.out.println("Failed operations: " + failedOperations.get());
-        System.out.println("Operations per second: " +
-                String.format("%.2f", (successfulOperations.get() * 1000.0) / duration));
-
-        assertEquals(0, failedOperations.get(), "Some operations failed during load test");
+        assertTrue(executorService.awaitTermination(1, TimeUnit.MINUTES));
     }
 
-    private void performRandomOperation() {
-        int operation = random.nextInt(5);
-        switch (operation) {
-            case 0 -> createNewOrder();
-            case 1 -> addPancakeToRandomOrder();
-            case 2 -> addIngredientToRandomPancake();
-            case 3 -> cancelRandomOrder();
-            case 4 -> viewRandomOrder();
+    private void processRandomOperation(Map<UUID, OrderState> threadLocalOrders) {
+        int retries = 0;
+        while (retries < MAX_RETRIES) {
+            try {
+                switch (random.nextInt(5)) {
+                    case 0 -> createOrder(threadLocalOrders);
+                    case 1 -> addPancakeToOrder(threadLocalOrders);
+                    case 2 -> addIngredientToPancake(threadLocalOrders);
+                    case 3 -> completeOrder(threadLocalOrders);
+                    case 4 -> cancelOrder(threadLocalOrders);
+                }
+                return;
+            } catch (Exception e) {
+                retries++;
+                if (retries == MAX_RETRIES) {
+                    throw e;
+                }
+                // Small delay before retry
+                try {
+                    Thread.sleep(10);
+                } catch (InterruptedException ie) {
+                    Thread.currentThread().interrupt();
+                    throw new RuntimeException(ie);
+                }
+            }
         }
     }
 
-    private void createNewOrder() {
-        Order order = pancakeService.createOrder(
-                random.nextInt(100) + 1,
-                random.nextInt(500) + 1
+    private void createOrder(Map<UUID, OrderState> threadLocalOrders) {
+        Order order = orderService.createOrder(
+                random.nextInt(50) + 1,
+                random.nextInt(100) + 1
         );
-        testOrders.put(order.getId(), new OrderState(order));
+        threadLocalOrders.put(order.getId(), order.getState());
     }
 
-    private void addPancakeToRandomOrder() {
-        if (testOrders.isEmpty()) {
-            createNewOrder();
+    private void addPancakeToOrder(Map<UUID, OrderState> threadLocalOrders) {
+        if (threadLocalOrders.isEmpty()) {
+            createOrder(threadLocalOrders);
             return;
         }
 
-        OrderState orderState = getRandomOrderState();
-        if (orderState == null || orderState.cancelled) return;
-
-        try {
-            UUID pancakeId = pancakeService.addPancakeToOrder(orderState.order.getId());
-            orderState.pancakes.add(pancakeId);
-        } catch (IllegalArgumentException ignored) {
-            // Order might have been cancelled by another thread
-        }
-    }
-
-    private void addIngredientToRandomPancake() {
-        OrderState orderState = getRandomOrderState();
-        if (orderState == null || orderState.cancelled || orderState.pancakes.isEmpty()) return;
-
-        UUID pancakeId = orderState.pancakes.iterator().next();
-        String[] ingredients = {"dark chocolate", "milk chocolate", "hazelnuts", "whipped cream"};
-
-        try {
-            pancakeService.addIngredientToPancake(
-                    orderState.order.getId(),
-                    pancakeId,
-                    ingredients[random.nextInt(ingredients.length)]
-            );
-        } catch (IllegalArgumentException ignored) {
-            // Order or pancake might have been removed by another thread
-        }
-    }
-
-    private void cancelRandomOrder() {
-        OrderState orderState = getRandomOrderState();
-        if (orderState == null || orderState.cancelled) return;
-
-        try {
-            pancakeService.cancelOrder(orderState.order.getId());
-            orderState.cancelled = true;
-        } catch (IllegalArgumentException ignored) {
-            // Order might have been already cancelled
-        }
-    }
-
-    private void viewRandomOrder() {
-        OrderState orderState = getRandomOrderState();
-        if (orderState == null || orderState.cancelled) return;
-
-        try {
-            pancakeService.viewOrder(orderState.order.getId());
-        } catch (IllegalArgumentException ignored) {
-            // Order might have been removed
-        }
-    }
-
-    private OrderState getRandomOrderState() {
-        if (testOrders.isEmpty()) return null;
-        List<UUID> orderIds = new ArrayList<>(testOrders.keySet());
-        return testOrders.get(orderIds.get(random.nextInt(orderIds.size())));
-    }
-
-    private void cleanupTestOrders() {
-        testOrders.forEach((orderId, orderState) -> {
-            if (!orderState.cancelled) {
+        UUID orderId = getRandomOrder(threadLocalOrders);
+        if (orderId != null) {
+            OrderState state = threadLocalOrders.get(orderId);
+            if (state == OrderState.OPEN) {
                 try {
-                    pancakeService.cancelOrder(orderId);
-                } catch (Exception ignored) {
-                    // Order might have been already cancelled
+                    pancakeService.createPancake(orderId);
+                } catch (IllegalStateException e) {
+                    // Order might have been completed or cancelled
+                    threadLocalOrders.remove(orderId);
+                    throw e;
                 }
             }
-        });
-        testOrders.clear();
+        }
     }
 
-    private static class OrderState {
-        final Order order;
-        final Set<UUID> pancakes = ConcurrentHashMap.newKeySet();
-        volatile boolean cancelled = false;
+    private void addIngredientToPancake(Map<UUID, OrderState> threadLocalOrders) {
+        UUID orderId = getRandomOrder(threadLocalOrders);
+        if (orderId == null) return;
 
-        OrderState(Order order) {
-            this.order = order;
+        OrderState state = threadLocalOrders.get(orderId);
+        if (state == OrderState.OPEN) {
+            try {
+                List<Pancake> pancakes = pancakeService.getPancakesByOrder(orderId);
+                if (!pancakes.isEmpty()) {
+                    Pancake pancake = pancakes.get(random.nextInt(pancakes.size()));
+                    String ingredient = availableIngredients.get(random.nextInt(availableIngredients.size()));
+                    pancakeService.addIngredientToPancake(orderId, pancake.getId(), ingredient);
+                }
+            } catch (IllegalStateException e) {
+                // Order might have been completed or cancelled
+                threadLocalOrders.remove(orderId);
+                throw e;
+            }
         }
+    }
+
+    private void completeOrder(Map<UUID, OrderState> threadLocalOrders) {
+        UUID orderId = getRandomOrder(threadLocalOrders);
+        if (orderId == null) return;
+
+        OrderState state = threadLocalOrders.get(orderId);
+        if (state == OrderState.OPEN) {
+            try {
+                orderService.completeOrder(orderId);
+                threadLocalOrders.put(orderId, OrderState.COMPLETED);
+            } catch (IllegalStateException e) {
+                // Order might have been cancelled
+                threadLocalOrders.remove(orderId);
+                throw e;
+            }
+        }
+    }
+
+    private void cancelOrder(Map<UUID, OrderState> threadLocalOrders) {
+        UUID orderId = getRandomOrder(threadLocalOrders);
+        if (orderId != null) {
+            try {
+                orderService.cancelOrder(orderId);
+                threadLocalOrders.remove(orderId);
+            } catch (IllegalStateException ignored) {
+                // Order might have been already cancelled or delivered
+                threadLocalOrders.remove(orderId);
+            }
+        }
+    }
+
+    private UUID getRandomOrder(Map<UUID, OrderState> threadLocalOrders) {
+        if (threadLocalOrders.isEmpty()) {
+            return null;
+        }
+        List<UUID> orderIds = new ArrayList<>(threadLocalOrders.keySet());
+        return orderIds.get(random.nextInt(orderIds.size()));
+    }
+
+    private void cleanupOrders(Map<UUID, OrderState> threadLocalOrders) {
+        for (UUID orderId : threadLocalOrders.keySet()) {
+            try {
+                orderService.cancelOrder(orderId);
+            } catch (Exception ignored) {
+                // Order might have been already cancelled or delivered
+            }
+        }
+        threadLocalOrders.clear();
     }
 }

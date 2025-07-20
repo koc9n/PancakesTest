@@ -1,9 +1,12 @@
 package org.pancakelab.http;
 
 import org.junit.jupiter.api.*;
-import org.pancakelab.http.dto.CreatePancakeResponse;
 import org.pancakelab.http.dto.OrderResponse;
+import org.pancakelab.http.dto.PancakeResponse;
+import org.pancakelab.service.OrderService;
 import org.pancakelab.service.PancakeService;
+import org.pancakelab.service.impl.OrderServiceImpl;
+import org.pancakelab.service.impl.PancakeServiceImpl;
 
 import java.net.URI;
 import java.net.http.HttpClient;
@@ -21,7 +24,8 @@ public class PancakeApiTest {
     private static PancakeHttpServer server;
     private static HttpClient client;
     private String orderId;
-    private final PancakeService pancakeService = PancakeService.getInstance();
+    private final OrderService orderService = OrderServiceImpl.getInstance();
+    private final PancakeService pancakeService = PancakeServiceImpl.getInstance();
 
     @BeforeAll
     void setUp() throws Exception {
@@ -36,7 +40,7 @@ public class PancakeApiTest {
     void tearDown() {
         if (orderId != null) {
             try {
-                pancakeService.cancelOrder(UUID.fromString(orderId));
+                orderService.cancelOrder(UUID.fromString(orderId));
             } catch (Exception ignored) {
                 // Order might have been already cancelled or delivered
             }
@@ -64,8 +68,8 @@ public class PancakeApiTest {
         assertEquals(201, response.statusCode());
         assertTrue(response.body().contains("orderId"));
 
-        // Extract orderId for subsequent tests
-        orderId = JsonUtil.parseResponse(response, OrderResponse.class).orderId();
+        // Extract orderId for subsequent tests using correct field name
+        orderId = JsonUtil.parseResponse(response, OrderResponse.class).orderId().toString();
     }
 
     @Test
@@ -80,7 +84,11 @@ public class PancakeApiTest {
         HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
 
         assertEquals(201, response.statusCode());
-        assertTrue(response.body().contains("pancakeId"));
+        assertTrue(response.body().contains("\"id\""));
+
+        // Verify we can parse it as PancakeResponse
+        PancakeResponse pancake = JsonUtil.parseResponse(response, PancakeResponse.class);
+        assertNotNull(pancake.id());
     }
 
     @Test
@@ -94,22 +102,22 @@ public class PancakeApiTest {
                 .build();
 
         HttpResponse<String> pancakeResponse = client.send(createPancakeRequest, HttpResponse.BodyHandlers.ofString());
-        String pancakeId = JsonUtil.parseResponse(pancakeResponse, CreatePancakeResponse.class).pancakeId();
+        String pancakeId = JsonUtil.parseResponse(pancakeResponse, PancakeResponse.class).id().toString();
 
-        // Then add an ingredient
+        // Then add an ingredient with correct field name
         String ingredientBody = """
                 {
-                    "ingredient": "dark chocolate"
+                    "name": "dark chocolate"
                 }""";
 
         HttpRequest addIngredientRequest = HttpRequest.newBuilder()
-                .uri(URI.create(BASE_URL + "/orders/" + orderId + "/pancakes/" + pancakeId + "/ingredient"))
+                .uri(URI.create(BASE_URL + "/orders/" + orderId + "/pancakes/" + pancakeId + "/ingredients"))
                 .header("Content-Type", "application/json")
                 .POST(HttpRequest.BodyPublishers.ofString(ingredientBody))
                 .build();
 
         HttpResponse<String> response = client.send(addIngredientRequest, HttpResponse.BodyHandlers.ofString());
-        assertEquals(200, response.statusCode());
+        assertEquals(201, response.statusCode());  // Changed to 201 since we're creating a resource
     }
 
     @Test
@@ -150,14 +158,24 @@ public class PancakeApiTest {
         assertEquals(400, response.statusCode());
         assertTrue(response.body().contains("Building number must be positive"));
 
-        // Test invalid ingredient (empty)
+        // Create a pancake first to test ingredient validation
+        HttpRequest createPancakeRequest = HttpRequest.newBuilder()
+                .uri(URI.create(BASE_URL + "/orders/" + orderId + "/pancakes"))
+                .header("Content-Type", "application/json")
+                .POST(HttpRequest.BodyPublishers.ofString("{}"))
+                .build();
+
+        HttpResponse<String> pancakeResponse = client.send(createPancakeRequest, HttpResponse.BodyHandlers.ofString());
+        String pancakeId = JsonUtil.parseResponse(pancakeResponse, PancakeResponse.class).id().toString();
+
+        // Test invalid ingredient (empty) with correct field name
         String invalidIngredientBody = """
                 {
-                    "ingredient": ""
+                    "name": ""
                 }""";
 
         request = HttpRequest.newBuilder()
-                .uri(URI.create(BASE_URL + "/orders/" + orderId + "/pancakes/" + UUID.randomUUID() + "/ingredient"))
+                .uri(URI.create(BASE_URL + "/orders/" + orderId + "/pancakes/" + pancakeId + "/ingredients"))
                 .header("Content-Type", "application/json")
                 .POST(HttpRequest.BodyPublishers.ofString(invalidIngredientBody))
                 .build();
@@ -165,7 +183,7 @@ public class PancakeApiTest {
         response = client.send(request, HttpResponse.BodyHandlers.ofString());
 
         assertEquals(400, response.statusCode());
-        assertTrue(response.body().contains("Ingredient cannot be empty"));
+        assertTrue(response.body().contains("Ingredient name cannot be empty"));
     }
 
     @Test
