@@ -2,8 +2,9 @@ package org.pancakelab.http;
 
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
-import org.pancakelab.http.dto.CreateOrderRequest;
-import org.pancakelab.http.dto.OrderResponse;
+import org.pancakelab.http.dto.*;
+import org.pancakelab.http.validation.RequestValidator;
+import org.pancakelab.http.validation.ValidationException;
 import org.pancakelab.model.Order;
 import org.pancakelab.service.PancakeService;
 
@@ -50,6 +51,8 @@ public class OrderHandler implements HttpHandler {
                     sendError(exchange, 404, "Not found");
                 }
             }
+        } catch (ValidationException e) {
+            sendError(exchange, e.getStatusCode(), e.getMessage());
         } catch (Exception e) {
             sendError(exchange, 500, "Internal Server Error: " + e.getMessage());
         }
@@ -81,6 +84,10 @@ public class OrderHandler implements HttpHandler {
 
     private void handleCreateOrder(HttpExchange exchange) throws IOException {
         CreateOrderRequest request = JsonUtil.fromJson(exchange.getRequestBody(), CreateOrderRequest.class);
+
+        // Validate request
+        RequestValidator.validateOrderCreation(request.getBuilding(), request.getRoom());
+
         Order order = pancakeService.createOrder(request.getBuilding(), request.getRoom());
         OrderResponse response = new OrderResponse(
             order.getId().toString(),
@@ -92,9 +99,9 @@ public class OrderHandler implements HttpHandler {
     }
 
     private void handleGetOrder(HttpExchange exchange, String orderId) throws IOException {
-        UUID orderUUID = UUID.fromString(orderId);
+        UUID orderUUID = RequestValidator.validateUUID(orderId, "orderId");
         Order order = pancakeService.getOrder(orderUUID)
-            .orElseThrow(() -> new IllegalArgumentException("Order not found"));
+            .orElseThrow(() -> new ValidationException("Order not found", 404));
 
         OrderResponse response = new OrderResponse(
             orderId,
@@ -106,21 +113,29 @@ public class OrderHandler implements HttpHandler {
     }
 
     private void handleCreatePancake(HttpExchange exchange, String orderId) throws IOException {
-        UUID pancakeId = pancakeService.createPancake(UUID.fromString(orderId));
+        UUID orderUUID = RequestValidator.validateUUID(orderId, "orderId");
+
+        // Validate order exists
+        pancakeService.getOrder(orderUUID)
+            .orElseThrow(() -> new ValidationException("Order not found", 404));
+
+        UUID pancakeId = pancakeService.createPancake(orderUUID);
         Map<String, String> response = new HashMap<>();
         response.put("pancakeId", pancakeId.toString());
         sendResponse(exchange, 201, JsonUtil.toJson(response));
     }
 
     private void handleAddIngredient(HttpExchange exchange, String orderId, String pancakeId) throws IOException {
+        UUID orderUUID = RequestValidator.validateUUID(orderId, "orderId");
+        UUID pancakeUUID = RequestValidator.validateUUID(pancakeId, "pancakeId");
+
         Map<String, Object> request = JsonUtil.fromJson(exchange.getRequestBody(), Map.class);
         String ingredient = request.get("ingredient").toString();
 
-        pancakeService.addIngredientToPancake(
-            UUID.fromString(orderId),
-            UUID.fromString(pancakeId),
-            ingredient
-        );
+        // Validate ingredient
+        RequestValidator.validateIngredient(ingredient);
+
+        pancakeService.addIngredientToPancake(orderUUID, pancakeUUID, ingredient);
 
         Map<String, String> response = new HashMap<>();
         response.put("status", "Ingredient added successfully");
@@ -128,7 +143,13 @@ public class OrderHandler implements HttpHandler {
     }
 
     private void handleCancelOrder(HttpExchange exchange, String orderId) throws IOException {
-        pancakeService.cancelOrder(UUID.fromString(orderId));
+        UUID orderUUID = RequestValidator.validateUUID(orderId, "orderId");
+
+        // Validate order exists
+        pancakeService.getOrder(orderUUID)
+            .orElseThrow(() -> new ValidationException("Order not found", 404));
+
+        pancakeService.cancelOrder(orderUUID);
         sendResponse(exchange, 204, "");
     }
 
