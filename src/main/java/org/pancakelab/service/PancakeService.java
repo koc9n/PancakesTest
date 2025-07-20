@@ -98,4 +98,34 @@ public class PancakeService {
                        .filter(pancake -> pancake.getOrderId().equals(orderId))
                        .map(PancakeRecipe::description).toList();
     }
+
+    public Optional<Order> getOrder(UUID orderId) {
+        return orders.stream()
+                .filter(o -> o.getId().equals(orderId))
+                .findFirst();
+    }
+
+    public UUID createPancake(UUID orderId) {
+        Order order = orders.stream()
+                .filter(o -> o.getId().equals(orderId))
+                .findFirst()
+                .orElseThrow(() -> new IllegalArgumentException("Order not found"));
+
+        PancakeRecipe pancake = new PancakeRecipe();
+        pancake.setOrderId(orderId);
+        pancakes.add(pancake);
+
+        OrderLog.logAddPancake(order, pancake.description(), pancakes);
+        return pancake.getOrderId();
+    }
+
+    public void addIngredientToPancake(UUID orderId, UUID pancakeId, String ingredient) {
+        PancakeRecipe pancake = pancakes.stream()
+                .filter(p -> p.getOrderId().equals(orderId))
+                .filter(p -> p.getId().equals(pancakeId))
+                .findFirst()
+                .orElseThrow(() -> new IllegalArgumentException("Pancake not found"));
+
+        pancake.addIngredient(ingredient);
+    }
 }
