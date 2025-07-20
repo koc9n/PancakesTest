@@ -1,16 +1,16 @@
 package org.pancakelab.service;
 
 import org.pancakelab.model.Order;
-import org.pancakelab.model.pancakes.*;
+import org.pancakelab.model.pancakes.PancakeRecipe;
 
 import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
 
 public class PancakeService {
-    private List<Order>         orders          = new ArrayList<>();
-    private Set<UUID>           completedOrders = new HashSet<>();
-    private Set<UUID>           preparedOrders  = new HashSet<>();
-    private List<PancakeRecipe> pancakes        = new ArrayList<>();
+    private final List<Order> orders = new ArrayList<>();
+    private final Set<UUID> completedOrders = new HashSet<>();
+    private final Set<UUID> preparedOrders = new HashSet<>();
+    private final List<PancakeRecipe> pancakes = new ArrayList<>();
 
     public Order createOrder(int building, int room) {
         Order order = new Order(building, room);
@@ -18,17 +18,18 @@ public class PancakeService {
         return order;
     }
 
-    public void addPancakeToOrder(UUID orderId, List<String> ingredients, int count) {
+    public UUID addPancakeToOrder(UUID orderId) {
         Order order = orders.stream()
                 .filter(o -> o.getId().equals(orderId))
                 .findFirst()
                 .orElseThrow(() -> new IllegalArgumentException("Order not found"));
 
-        for (int i = 0; i < count; ++i) {
-            PancakeRecipe pancake = new PancakeRecipe();
-            ingredients.forEach(pancake::addIngredient);
-            addPancake(pancake, order);
-        }
+        PancakeRecipe pancake = new PancakeRecipe();
+        pancake.setOrderId(orderId);
+        pancakes.add(pancake);
+
+        OrderLog.logAddPancake(order, pancake.description(), pancakes);
+        return pancake.getId();
     }
 
     private void addPancake(PancakeRecipe pancake, Order order) {
@@ -116,16 +117,25 @@ public class PancakeService {
         pancakes.add(pancake);
 
         OrderLog.logAddPancake(order, pancake.description(), pancakes);
-        return pancake.getOrderId();
+        return pancake.getId();  // Return pancake.getId() instead of orderId
     }
 
     public void addIngredientToPancake(UUID orderId, UUID pancakeId, String ingredient) {
+        Order order = orders.stream()
+                .filter(o -> o.getId().equals(orderId))
+                .findFirst()
+                .orElseThrow(() -> new IllegalArgumentException("Order not found"));
+
         PancakeRecipe pancake = pancakes.stream()
-                .filter(p -> p.getOrderId().equals(orderId))
                 .filter(p -> p.getId().equals(pancakeId))
                 .findFirst()
                 .orElseThrow(() -> new IllegalArgumentException("Pancake not found"));
 
+        if (!pancake.getOrderId().equals(orderId)) {
+            throw new IllegalArgumentException("Pancake does not belong to this order");
+        }
+
         pancake.addIngredient(ingredient);
+        OrderLog.logAddPancake(order, pancake.description(), pancakes);
     }
 }

@@ -2,7 +2,10 @@ package org.pancakelab.http;
 
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
-import org.pancakelab.http.dto.*;
+import org.pancakelab.http.dto.CreateOrderRequest;
+import org.pancakelab.http.dto.CreatePancakeResponse;
+import org.pancakelab.http.dto.IngredientRequest;
+import org.pancakelab.http.dto.OrderResponse;
 import org.pancakelab.http.validation.RequestValidator;
 import org.pancakelab.http.validation.ValidationException;
 import org.pancakelab.model.Order;
@@ -10,7 +13,9 @@ import org.pancakelab.service.PancakeService;
 
 import java.io.IOException;
 import java.io.OutputStream;
-import java.util.*;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.UUID;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -86,9 +91,9 @@ public class OrderHandler implements HttpHandler {
         CreateOrderRequest request = JsonUtil.fromJson(exchange.getRequestBody(), CreateOrderRequest.class);
 
         // Validate request
-        RequestValidator.validateOrderCreation(request.getBuilding(), request.getRoom());
+        RequestValidator.validateOrderCreation(request.building(), request.room());
 
-        Order order = pancakeService.createOrder(request.getBuilding(), request.getRoom());
+        Order order = pancakeService.createOrder(request.building(), request.room());
         OrderResponse response = new OrderResponse(
             order.getId().toString(),
             order.getBuilding(),
@@ -120,8 +125,7 @@ public class OrderHandler implements HttpHandler {
             .orElseThrow(() -> new ValidationException("Order not found", 404));
 
         UUID pancakeId = pancakeService.createPancake(orderUUID);
-        Map<String, String> response = new HashMap<>();
-        response.put("pancakeId", pancakeId.toString());
+        CreatePancakeResponse response = new CreatePancakeResponse(pancakeId.toString());
         sendResponse(exchange, 201, JsonUtil.toJson(response));
     }
 
@@ -129,13 +133,12 @@ public class OrderHandler implements HttpHandler {
         UUID orderUUID = RequestValidator.validateUUID(orderId, "orderId");
         UUID pancakeUUID = RequestValidator.validateUUID(pancakeId, "pancakeId");
 
-        Map<String, Object> request = JsonUtil.fromJson(exchange.getRequestBody(), Map.class);
-        String ingredient = request.get("ingredient").toString();
+        IngredientRequest request = JsonUtil.fromJson(exchange.getRequestBody(), IngredientRequest.class);
 
         // Validate ingredient
-        RequestValidator.validateIngredient(ingredient);
+        RequestValidator.validateIngredient(request.ingredient());
 
-        pancakeService.addIngredientToPancake(orderUUID, pancakeUUID, ingredient);
+        pancakeService.addIngredientToPancake(orderUUID, pancakeUUID, request.ingredient());
 
         Map<String, String> response = new HashMap<>();
         response.put("status", "Ingredient added successfully");

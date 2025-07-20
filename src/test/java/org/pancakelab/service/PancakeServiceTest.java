@@ -166,8 +166,23 @@ public class PancakeServiceTest {
     }
 
     private void addPancakes() {
-        pancakeService.addPancakeToOrder(order.getId(), List.of("dark chocolate"), 3);
-        pancakeService.addPancakeToOrder(order.getId(), List.of("milk chocolate"), 3);
-        pancakeService.addPancakeToOrder(order.getId(), List.of("milk chocolate", "hazelnuts"), 3);
+        // Add dark chocolate pancakes
+        for (int i = 0; i < 3; i++) {
+            UUID pancakeId = pancakeService.addPancakeToOrder(order.getId());
+            pancakeService.addIngredientToPancake(order.getId(), pancakeId, "dark chocolate");
+        }
+
+        // Add milk chocolate pancakes
+        for (int i = 0; i < 3; i++) {
+            UUID pancakeId = pancakeService.addPancakeToOrder(order.getId());
+            pancakeService.addIngredientToPancake(order.getId(), pancakeId, "milk chocolate");
+        }
+
+        // Add milk chocolate hazelnuts pancakes
+        for (int i = 0; i < 3; i++) {
+            UUID pancakeId = pancakeService.addPancakeToOrder(order.getId());
+            pancakeService.addIngredientToPancake(order.getId(), pancakeId, "milk chocolate");
+            pancakeService.addIngredientToPancake(order.getId(), pancakeId, "hazelnuts");
+        }
     }
 }

@@ -2,13 +2,14 @@ package org.pancakelab.http;
 
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
-import org.pancakelab.http.dto.AddPancakesRequest;
 import org.pancakelab.http.dto.CreatePancakeRequest;
 import org.pancakelab.service.PancakeService;
 
 import java.io.IOException;
 import java.io.OutputStream;
-import java.util.*;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.UUID;
 
 public class PancakeHandler implements HttpHandler {
     private final PancakeService pancakeService;
@@ -43,7 +44,7 @@ public class PancakeHandler implements HttpHandler {
 
     private void handleCreatePancake(HttpExchange exchange) throws IOException {
         CreatePancakeRequest request = JsonUtil.fromJson(exchange.getRequestBody(), CreatePancakeRequest.class);
-        UUID pancakeId = pancakeService.createPancake(UUID.fromString(request.getOrderId()));
+        UUID pancakeId = pancakeService.createPancake(UUID.fromString(request.orderId()));
 
         Map<String, String> response = new HashMap<>();
         response.put("pancakeId", pancakeId.toString());
