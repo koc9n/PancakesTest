@@ -2,17 +2,12 @@ package org.pancakelab.service;
 
 import org.pancakelab.model.Order;
 import org.pancakelab.model.OrderState;
-import org.pancakelab.service.impl.OrderServiceImpl;
 
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
 public interface OrderService {
-    static OrderService getInstance() {
-        return OrderServiceImpl.getInstance();
-    }
-
     // Create
     Order createOrder(int building, int room);
 

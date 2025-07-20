@@ -4,8 +4,6 @@ import org.junit.jupiter.api.*;
 import org.pancakelab.model.Ingredient;
 import org.pancakelab.model.Order;
 import org.pancakelab.model.OrderState;
-import org.pancakelab.service.impl.OrderServiceImpl;
-import org.pancakelab.service.impl.PancakeServiceImpl;
 
 import java.util.UUID;
 
@@ -22,8 +20,9 @@ public class PancakeLabIntegrationTest {
 
     @BeforeAll
     void setUp() {
-        orderService = OrderServiceImpl.getInstance();
-        pancakeService = PancakeServiceImpl.getInstance();
+        ServiceFactory serviceFactory = new ServiceFactory();
+        orderService = serviceFactory.getOrderService();
+        pancakeService = serviceFactory.getPancakeService();
     }
 
     @BeforeEach

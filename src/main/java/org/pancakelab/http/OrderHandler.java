@@ -10,7 +10,7 @@ import org.pancakelab.model.Order;
 import org.pancakelab.model.Pancake;
 import org.pancakelab.service.OrderService;
 import org.pancakelab.service.PancakeService;
-import org.pancakelab.service.impl.PancakeServiceImpl;
+import org.pancakelab.service.ServiceFactory;
 import org.pancakelab.util.Logger;
 
 import java.io.IOException;
@@ -34,9 +34,9 @@ public class OrderHandler implements HttpHandler {
     private final Pattern ingredientPattern = Pattern.compile("/api/orders/([^/]+)/pancakes/([^/]+)/ingredients/?$");
     private final Pattern ingredientDetailPattern = Pattern.compile("/api/orders/([^/]+)/pancakes/([^/]+)/ingredients/([^/]+)/?$");
 
-    public OrderHandler() {
-        this.orderService = OrderService.getInstance();
-        this.pancakeService = PancakeServiceImpl.getInstance();
+    public OrderHandler(ServiceFactory serviceFactory) {
+        this.orderService = serviceFactory.getOrderService();
+        this.pancakeService = serviceFactory.getPancakeService();
         this.rateLimiter = new RateLimiter();
     }
 

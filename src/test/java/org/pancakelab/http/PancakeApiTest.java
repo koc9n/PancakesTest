@@ -5,8 +5,7 @@ import org.pancakelab.http.dto.OrderResponse;
 import org.pancakelab.http.dto.PancakeResponse;
 import org.pancakelab.service.OrderService;
 import org.pancakelab.service.PancakeService;
-import org.pancakelab.service.impl.OrderServiceImpl;
-import org.pancakelab.service.impl.PancakeServiceImpl;
+import org.pancakelab.service.ServiceFactory;
 
 import java.net.URI;
 import java.net.http.HttpClient;
@@ -24,12 +23,16 @@ public class PancakeApiTest {
     private static PancakeHttpServer server;
     private static HttpClient client;
     private String orderId;
-    private final OrderService orderService = OrderServiceImpl.getInstance();
-    private final PancakeService pancakeService = PancakeServiceImpl.getInstance();
+    private OrderService orderService;
+    private PancakeService pancakeService;
 
     @BeforeAll
     void setUp() throws Exception {
-        server = new PancakeHttpServer(8080, 10);
+        ServiceFactory serviceFactory = new ServiceFactory();
+        orderService = serviceFactory.getOrderService();
+        pancakeService = serviceFactory.getPancakeService();
+
+        server = new PancakeHttpServer(8080, 10, serviceFactory);
         server.start();
         client = HttpClient.newBuilder()
                 .connectTimeout(Duration.ofSeconds(5))

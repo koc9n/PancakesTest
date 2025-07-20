@@ -7,8 +7,6 @@ import org.pancakelab.model.Ingredient;
 import org.pancakelab.model.Order;
 import org.pancakelab.model.OrderState;
 import org.pancakelab.model.Pancake;
-import org.pancakelab.service.impl.OrderServiceImpl;
-import org.pancakelab.service.impl.PancakeServiceImpl;
 
 import java.util.*;
 import java.util.concurrent.*;
@@ -34,8 +32,9 @@ public class PancakeServiceLoadTest {
 
     @BeforeAll
     void setUp() {
-        orderService = OrderServiceImpl.getInstance();
-        pancakeService = PancakeServiceImpl.getInstance();
+        ServiceFactory serviceFactory = new ServiceFactory();
+        orderService = serviceFactory.getOrderService();
+        pancakeService = serviceFactory.getPancakeService();
     }
 
     @Test

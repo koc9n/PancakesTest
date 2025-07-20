@@ -5,7 +5,6 @@ import org.pancakelab.model.Ingredient;
 import org.pancakelab.model.Order;
 import org.pancakelab.model.OrderState;
 import org.pancakelab.model.Pancake;
-import org.pancakelab.service.impl.PancakeServiceImpl;
 
 import java.util.List;
 import java.util.Optional;
@@ -25,8 +24,9 @@ public class PancakeServiceTest {
 
     @BeforeAll
     void setUp() {
-        orderService = OrderService.getInstance();
-        pancakeService = PancakeServiceImpl.getInstance();
+        ServiceFactory serviceFactory = new ServiceFactory();
+        orderService = serviceFactory.getOrderService();
+        pancakeService = serviceFactory.getPancakeService();
     }
 
     @BeforeEach

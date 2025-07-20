@@ -2,6 +2,7 @@ package org.pancakelab.http;
 
 import com.sun.net.httpserver.HttpHandler;
 import com.sun.net.httpserver.HttpServer;
+import org.pancakelab.service.ServiceFactory;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;
@@ -16,13 +17,13 @@ public class PancakeHttpServer {
     private final HttpServer server;
     private final ExecutorService executor;
 
-    public PancakeHttpServer(int port, int poolSize) throws IOException {
+    public PancakeHttpServer(int port, int poolSize, ServiceFactory serviceFactory) throws IOException {
         server = HttpServer.create(new InetSocketAddress(port), 100); // Backlog size of 100
         executor = createExecutor(poolSize);
         server.setExecutor(executor);
 
-        // Register handlers with timeout wrapper
-        HttpHandler orderHandler = new TimeoutHandler(new OrderHandler(), REQUEST_TIMEOUT_MS);
+        // Register handlers with timeout wrapper and dependency injection
+        HttpHandler orderHandler = new TimeoutHandler(new OrderHandler(serviceFactory), REQUEST_TIMEOUT_MS);
         server.createContext("/api/orders", orderHandler);
     }
 

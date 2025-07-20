@@ -9,14 +9,10 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
 public class OrderServiceImpl implements OrderService {
-    private static final OrderServiceImpl INSTANCE = new OrderServiceImpl();
     private final Map<UUID, Order> orders = new ConcurrentHashMap<>();
 
-    private OrderServiceImpl() {
-    }
-
-    public static OrderServiceImpl getInstance() {
-        return INSTANCE;
+    public OrderServiceImpl() {
+        // Remove singleton pattern - allow normal instantiation
     }
 
     @Override

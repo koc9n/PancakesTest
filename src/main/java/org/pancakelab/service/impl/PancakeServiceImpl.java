@@ -13,15 +13,10 @@ import java.util.Optional;
 import java.util.UUID;
 
 public class PancakeServiceImpl implements PancakeService {
-    private static final PancakeServiceImpl INSTANCE = new PancakeServiceImpl();
     private final OrderService orderService;
 
-    private PancakeServiceImpl() {
-        this.orderService = OrderService.getInstance();
-    }
-
-    public static PancakeServiceImpl getInstance() {
-        return INSTANCE;
+    public PancakeServiceImpl(OrderService orderService) {
+        this.orderService = orderService;
     }
 
     @Override
