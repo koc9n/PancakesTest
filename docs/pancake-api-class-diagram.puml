@@ -1,48 +1,296 @@
-@startuml
-class OrderHandler {
-  +handle(HttpExchange)
-}
-class OrderService {
-  +createOrder()
-  +getOrder()
-  +cancelOrder()
-  +completeOrder()
-  +prepareOrder()
-  +startDelivery()
-}
-class PancakeService {
-  +createPancake()
-  +getPancake()
-  +getPancakesByOrder()
-  +removePancake()
-  +addIngredientToPancake()
-  +removeIngredientFromPancake()
-}
-class Order {
-  building: int
-  room: int
-  state: OrderState
-  pancakes: List<Pancake>
-}
-class Pancake {
-  id: UUID
-  ingredients: List<Ingredient>
-}
-class Ingredient {
-  id: UUID
-  name: String
-}
-class OrderResponse
-class PancakeResponse
-class IngredientResponse
+@startuml PancakeLab Class Diagram
 
-OrderHandler --> OrderService
-OrderHandler --> PancakeService
-OrderService --> Order
+!theme plain
+skinparam classAttributeIconSize 0
+skinparam classFontSize 10
+
+package "Main Application" {
+    class Main {
+        +main(String[] args): void
+    }
+
+    class Configuration {
+        -instance: Configuration
+        -properties: Properties
+        +getInstance(): Configuration
+        +getServerPort(): int
+        +getThreadPoolSize(): int
+        +getRequestTimeoutMs(): int
+        +getServerBacklogSize(): int
+        +getShutdownTimeoutSeconds(): int
+    }
+}
+
+package "HTTP Layer" {
+    class PancakeHttpServer {
+        -server: HttpServer
+        -executor: ExecutorService
+        -config: Configuration
+        +PancakeHttpServer(int port, int poolSize, ServiceFactory serviceFactory)
+        +start(): void
+        +stop(): void
+        -createExecutor(int poolSize): ExecutorService
+    }
+
+    class ApiHandler {
+        -router: Router
+        -rateLimiter: RateLimiter
+        +ApiHandler(ServiceFactory serviceFactory)
+        +handle(HttpExchange exchange): void
+        -setupRoutes(OrderController, PancakeController): void
+    }
+
+    class Router {
+        -routes: List<Route>
+        +addRoute(String method, String pattern, RouteHandler handler): void
+        +handleRequest(HttpExchange exchange): boolean
+        -compilePattern(String pattern): Pattern
+        -extractParamNames(String pattern): List<String>
+        -extractPathParams(Matcher, List<String>): Map<String, String>
+    }
+
+    class TimeoutHandler {
+        -delegate: HttpHandler
+        -timeoutMs: long
+        +handle(HttpExchange exchange): void
+    }
+
+    class RateLimiter {
+        -requestWindows: Map<String, RequestWindow>
+        -maxRequestsPerMinute: int
+        +allowRequest(String clientIp): boolean
+        -cleanup(): void
+    }
+
+    class HttpUtils {
+        +sendJson(HttpExchange, int, Object): void
+        +sendError(HttpExchange, int, String): void
+        +sendEmpty(HttpExchange, int): void
+        +getQueryParam(HttpExchange, String): String
+    }
+
+    class JsonUtil {
+        +fromJson(HttpExchange, Class<T>): T
+        +fromJson(String, Class<T>): T
+        +serialize(Object): byte[]
+        +toJson(Object): String
+    }
+}
+
+package "Controllers" {
+    class OrderController {
+        -orderService: OrderService
+        +createOrder(HttpExchange, Map<String, String>): void
+        +getAllOrders(HttpExchange, Map<String, String>): void
+        +getOrder(HttpExchange, Map<String, String>): void
+        +deleteOrder(HttpExchange, Map<String, String>): void
+        +completeOrder(HttpExchange, Map<String, String>): void
+        +prepareOrder(HttpExchange, Map<String, String>): void
+        +startDelivery(HttpExchange, Map<String, String>): void
+        +cancelOrder(HttpExchange, Map<String, String>): void
+    }
+
+    class PancakeController {
+        -pancakeService: PancakeService
+        +createPancake(HttpExchange, Map<String, String>): void
+        +getPancakes(HttpExchange, Map<String, String>): void
+        +deletePancake(HttpExchange, Map<String, String>): void
+        +addIngredient(HttpExchange, Map<String, String>): void
+        +removeIngredient(HttpExchange, Map<String, String>): void
+    }
+}
+
+package "DTOs" {
+    class CreateOrderRequest {
+        +building(): int
+        +room(): int
+    }
+
+    class OrderResponse {
+        +orderId(): UUID
+        +building(): int
+        +room(): int
+        +state(): OrderState
+        +pancakes(): List<PancakeResponse>
+        +fromOrder(Order): OrderResponse
+    }
+
+    class PancakeResponse {
+        +id(): UUID
+        +ingredients(): List<IngredientResponse>
+        +fromPancake(Pancake): PancakeResponse
+    }
+
+    class IngredientResponse {
+        +id(): UUID
+        +name(): String
+        +from(Ingredient): IngredientResponse
+    }
+
+    class AddIngredientRequest {
+        +name(): String
+    }
+}
+
+package "Validation" {
+    class RequestValidator {
+        +validateCreateOrder(CreateOrderRequest): void
+        +validateAddIngredient(AddIngredientRequest): void
+        +validateUUID(String, String): UUID
+    }
+
+    class ValidationException {
+        -statusCode: int
+        +ValidationException(String)
+        +ValidationException(String, int)
+        +getStatusCode(): int
+    }
+}
+
+package "Service Layer" {
+    class ServiceFactory {
+        -orderService: OrderService
+        -pancakeService: PancakeService
+        +getOrderService(): OrderService
+        +getPancakeService(): PancakeService
+    }
+
+    interface OrderService {
+        +createOrder(int building, int room): Order
+        +getOrder(UUID orderId): Optional<Order>
+        +getAllOrders(): List<Order>
+        +getOrdersByState(OrderState state): List<Order>
+        +completeOrder(UUID orderId): void
+        +prepareOrder(UUID orderId): void
+        +startDelivery(UUID orderId): void
+        +cancelOrder(UUID orderId): void
+        +deleteOrder(UUID orderId): void
+    }
+
+    class OrderServiceImpl {
+        -orders: ConcurrentHashMap<UUID, Order>
+        +createOrder(int building, int room): Order
+        +getOrder(UUID orderId): Optional<Order>
+        +getAllOrders(): List<Order>
+        +getOrdersByState(OrderState state): List<Order>
+        +completeOrder(UUID orderId): void
+        +prepareOrder(UUID orderId): void
+        +startDelivery(UUID orderId): void
+        +cancelOrder(UUID orderId): void
+        +deleteOrder(UUID orderId): void
+        -updateOrderState(UUID orderId, OrderState newState): void
+        -validateStateTransition(OrderState current, OrderState new): void
+    }
+
+    interface PancakeService {
+        +createPancake(UUID orderId): UUID
+        +getPancake(UUID orderId, UUID pancakeId): Optional<Pancake>
+        +getPancakesByOrder(UUID orderId): List<Pancake>
+        +addIngredientToPancake(UUID orderId, UUID pancakeId, Ingredient ingredient): Ingredient
+        +removeIngredientFromPancake(UUID orderId, UUID pancakeId, UUID ingredientId): void
+        +removePancake(UUID orderId, UUID pancakeId): void
+    }
+
+    class PancakeServiceImpl {
+        -orderService: OrderService
+        +createPancake(UUID orderId): UUID
+        +getPancake(UUID orderId, UUID pancakeId): Optional<Pancake>
+        +getPancakesByOrder(UUID orderId): List<Pancake>
+        +addIngredientToPancake(UUID orderId, UUID pancakeId, Ingredient ingredient): Ingredient
+        +removeIngredientFromPancake(UUID orderId, UUID pancakeId, UUID ingredientId): void
+        +removePancake(UUID orderId, UUID pancakeId): void
+    }
+}
+
+package "Model Layer" {
+    class Order {
+        -id: UUID
+        -building: int
+        -room: int
+        -pancakes: List<Pancake>
+        -state: OrderState
+        +Order(int building, int room)
+        +synchronized getId(): UUID
+        +synchronized getState(): OrderState
+        +synchronized compareAndSetState(OrderState expect, OrderState update): boolean
+        +synchronized getPancakes(): List<Pancake>
+        +synchronized addPancake(Pancake pancake): void
+        +synchronized removePancake(UUID pancakeId): void
+        +synchronized getPancake(UUID pancakeId): Optional<Pancake>
+    }
+
+    enum OrderState {
+        OPEN
+        COMPLETED
+        PREPARED
+        OUT_FOR_DELIVERY
+        CANCELLED
+    }
+
+    class Pancake {
+        -id: UUID
+        -ingredients: List<Ingredient>
+        +Pancake()
+        +getId(): UUID
+        +synchronized ingredients(): List<Ingredient>
+        +synchronized addIngredient(Ingredient ingredient): void
+        +synchronized removeIngredient(UUID ingredientId): void
+        +synchronized description(): String
+    }
+
+    class Ingredient {
+        -id: UUID
+        -name: String
+        +Ingredient(String name)
+        +getId(): UUID
+        +getName(): String
+    }
+}
+
+package "Utilities" {
+    class Logger {
+        +info(String format, Object... args): void
+        +error(String format, Object... args): void
+        +warn(String format, Object... args): void
+        +debug(String format, Object... args): void
+    }
+}
+
+' Relationships
+Main --> PancakeHttpServer
+Main --> ServiceFactory
+PancakeHttpServer --> ApiHandler
+PancakeHttpServer --> TimeoutHandler
+PancakeHttpServer --> Configuration
+ApiHandler --> Router
+ApiHandler --> RateLimiter
+ApiHandler --> OrderController
+ApiHandler --> PancakeController
+OrderController --> OrderService
+PancakeController --> PancakeService
+ServiceFactory --> OrderServiceImpl
+ServiceFactory --> PancakeServiceImpl
+OrderServiceImpl ..|> OrderService
+PancakeServiceImpl ..|> PancakeService
+PancakeServiceImpl --> OrderService
+OrderServiceImpl --> Order
 Order --> Pancake
+Order --> OrderState
 Pancake --> Ingredient
-OrderHandler --> OrderResponse
-OrderHandler --> PancakeResponse
-OrderHandler --> IngredientResponse
-@enduml
+OrderController --> RequestValidator
+PancakeController --> RequestValidator
+OrderController --> OrderResponse
+OrderController --> CreateOrderRequest
+PancakeController --> PancakeResponse
+PancakeController --> AddIngredientRequest
+RequestValidator --> ValidationException
+Router --> Router.RouteHandler
+HttpUtils --> HttpUtils.ErrorResponse
 
+note top of Order : "Simplified concurrency:\nUsing synchronized methods\ninstead of complex atomic operations"
+
+note top of Router : "Router-based architecture:\nNamed path parameters\nClean separation of concerns"
+
+note top of ApiHandler : "Replaces old OrderHandler:\nController-based routing\nCentralized error handling"
+
+@enduml

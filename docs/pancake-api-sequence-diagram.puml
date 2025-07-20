@@ -1,28 +1,231 @@
-@startuml
+@startuml PancakeLab API Sequence Diagram
+
+!theme plain
+skinparam sequenceMessageAlign center
+skinparam maxMessageSize 150
+
+title PancakeLab API Request Flow
+
 actor Client
-Client -> OrderHandler : POST /api/orders
-OrderHandler -> OrderService : createOrder(request)
-OrderService -> Order : new Order()
-OrderService -> OrderLogService : logOrderCreated(order)
-OrderHandler -> Client : 201 Created + OrderResponse
+participant "PancakeHttpServer" as Server
+participant "TimeoutHandler" as Timeout
+participant "ApiHandler" as API
+participant "Router" as Router
+participant "RateLimiter" as RateLimit
+participant "OrderController" as OrderCtrl
+participant "PancakeController" as PancakeCtrl
+participant "RequestValidator" as Validator
+participant "OrderService" as OrderSvc
+participant "PancakeService" as PancakeSvc
+participant "Order" as Order
+participant "Pancake" as Pancake
+participant "HttpUtils" as Utils
+participant "JsonUtil" as JSON
 
-Client -> OrderHandler : POST /api/orders/{orderId}/pancakes
-OrderHandler -> OrderService : getOrder(orderId)
-OrderHandler -> PancakeService : addPancake(orderId, pancakeRequest)
-PancakeService -> Pancake : new Pancake()
-OrderHandler -> Client : 201 Created + PancakeResponse
+== Order Creation Flow ==
+Client -> Server: POST /api/orders\n{"building": 10, "room": 20}
+activate Server
 
-Client -> OrderHandler : POST /api/orders/{orderId}/pancakes/{pancakeId}/ingredients
-OrderHandler -> OrderService : getOrder(orderId)
-OrderHandler -> PancakeService : getPancake(orderId, pancakeId)
-OrderHandler -> PancakeService : addIngredientToPancake(orderId, pancakeId, ingredientName)
-PancakeService -> Pancake : addIngredient(ingredientName)
-OrderHandler -> Client : 201 Created + IngredientResponse
+Server -> Timeout: handle(exchange)
+activate Timeout
 
-Client -> OrderHandler : PATCH /api/orders/{orderId}/state
-OrderHandler -> OrderService : getOrder(orderId)
-OrderHandler -> OrderService : changeOrderState(orderId, newState)
-OrderService -> Order : setState(newState)
-OrderService -> OrderLogService : logStateChange(order, newState)
-OrderHandler -> Client : 200 OK + OrderResponse
+Timeout -> API: handle(exchange)
+activate API
+
+API -> RateLimit: allowRequest(clientIp)
+RateLimit --> API: true
+
+API -> Router: handleRequest(exchange)
+activate Router
+
+Router -> Router: match pattern "/api/orders"
+Router -> Router: extractPathParams()
+Router -> OrderCtrl: createOrder(exchange, pathParams)
+activate OrderCtrl
+
+OrderCtrl -> JSON: fromJson(exchange, CreateOrderRequest.class)
+JSON --> OrderCtrl: CreateOrderRequest
+
+OrderCtrl -> Validator: validateCreateOrder(request)
+Validator --> OrderCtrl: validation passed
+
+OrderCtrl -> OrderSvc: createOrder(building, room)
+activate OrderSvc
+
+OrderSvc -> Order: new Order(building, room)
+activate Order
+Order --> OrderSvc: order instance
+deactivate Order
+
+OrderSvc --> OrderCtrl: Order
+
+OrderCtrl -> Utils: sendJson(exchange, 201, OrderResponse)
+Utils -> JSON: toJson(OrderResponse)
+JSON --> Utils: JSON string
+Utils --> Client: 201 Created\n{"orderId": "uuid", ...}
+
+deactivate OrderCtrl
+deactivate OrderSvc
+deactivate Router
+deactivate API
+deactivate Timeout
+deactivate Server
+
+== Pancake Creation Flow ==
+Client -> Server: POST /api/orders/{orderId}/pancakes\n{}
+activate Server
+
+Server -> Timeout: handle(exchange)
+activate Timeout
+
+Timeout -> API: handle(exchange)
+activate API
+
+API -> RateLimit: allowRequest(clientIp)
+RateLimit --> API: true
+
+API -> Router: handleRequest(exchange)
+activate Router
+
+Router -> Router: match pattern "/api/orders/{orderId}/pancakes"
+Router -> Router: extractPathParams() → {orderId: "uuid"}
+Router -> PancakeCtrl: createPancake(exchange, pathParams)
+activate PancakeCtrl
+
+PancakeCtrl -> PancakeSvc: createPancake(orderId)
+activate PancakeSvc
+
+PancakeSvc -> OrderSvc: getOrder(orderId)
+OrderSvc --> PancakeSvc: Optional<Order>
+
+PancakeSvc -> Pancake: new Pancake()
+activate Pancake
+Pancake --> PancakeSvc: pancake instance
+deactivate Pancake
+
+PancakeSvc -> Order: addPancake(pancake)
+activate Order
+Order -> Order: synchronized addPancake()
+Order --> PancakeSvc: void
+deactivate Order
+
+PancakeSvc --> PancakeCtrl: pancakeId
+
+PancakeCtrl -> Utils: sendJson(exchange, 201, {"id": pancakeId})
+Utils --> Client: 201 Created\n{"id": "pancake-uuid"}
+
+deactivate PancakeCtrl
+deactivate PancakeSvc
+deactivate Router
+deactivate API
+deactivate Timeout
+deactivate Server
+
+== Ingredient Addition Flow ==
+Client -> Server: POST /api/orders/{orderId}/pancakes/{pancakeId}/ingredients\n{"name": "chocolate"}
+activate Server
+
+Server -> Timeout: handle(exchange)
+activate Timeout
+
+Timeout -> API: handle(exchange)
+activate API
+
+API -> RateLimit: allowRequest(clientIp)
+RateLimit --> API: true
+
+API -> Router: handleRequest(exchange)
+activate Router
+
+Router -> Router: match pattern with named parameters
+Router -> Router: extractPathParams() → {orderId: "uuid", pancakeId: "uuid"}
+Router -> PancakeCtrl: addIngredient(exchange, pathParams)
+activate PancakeCtrl
+
+PancakeCtrl -> JSON: fromJson(exchange, AddIngredientRequest.class)
+JSON --> PancakeCtrl: AddIngredientRequest
+
+PancakeCtrl -> Validator: validateAddIngredient(request)
+alt validation fails
+    Validator -> Validator: throw ValidationException
+    PancakeCtrl -> Utils: sendError(exchange, 400, "Ingredient name cannot be empty")
+    Utils --> Client: 400 Bad Request
+else validation passes
+    Validator --> PancakeCtrl: validation passed
+
+    PancakeCtrl -> PancakeSvc: addIngredientToPancake(orderId, pancakeId, ingredient)
+    activate PancakeSvc
+
+    PancakeSvc -> OrderSvc: getOrder(orderId)
+    OrderSvc --> PancakeSvc: Optional<Order>
+
+    PancakeSvc -> Order: getPancake(pancakeId)
+    activate Order
+    Order -> Order: synchronized getPancake()
+    Order --> PancakeSvc: Optional<Pancake>
+    deactivate Order
+
+    PancakeSvc -> Pancake: addIngredient(ingredient)
+    activate Pancake
+    Pancake -> Pancake: synchronized addIngredient()
+    Pancake --> PancakeSvc: void
+    deactivate Pancake
+
+    PancakeSvc --> PancakeCtrl: Ingredient
+
+    PancakeCtrl -> Utils: sendJson(exchange, 201, {"ingredientId": ingredientId})
+    Utils --> Client: 201 Created\n{"ingredientId": "ingredient-uuid"}
+end
+
+deactivate PancakeCtrl
+deactivate PancakeSvc
+deactivate Router
+deactivate API
+deactivate Timeout
+deactivate Server
+
+== Error Handling Flow ==
+Client -> Server: POST /api/orders\n{"building": -1, "room": 20}
+activate Server
+
+Server -> Timeout: handle(exchange)
+activate Timeout
+
+Timeout -> API: handle(exchange)
+activate API
+
+API -> Router: handleRequest(exchange)
+activate Router
+
+Router -> OrderCtrl: createOrder(exchange, pathParams)
+activate OrderCtrl
+
+OrderCtrl -> JSON: fromJson(exchange, CreateOrderRequest.class)
+JSON --> OrderCtrl: CreateOrderRequest
+
+OrderCtrl -> Validator: validateCreateOrder(request)
+Validator -> Validator: throw ValidationException("Building number must be positive", 400)
+
+OrderCtrl -> Utils: sendError(exchange, 400, "Building number must be positive")
+Utils -> JSON: toJson(ErrorResponse)
+JSON --> Utils: JSON string
+Utils --> Client: 400 Bad Request\n{"status": 400, "error": "Building number must be positive", "timestamp": 1234567890}
+
+deactivate OrderCtrl
+deactivate Router
+deactivate API
+deactivate Timeout
+deactivate Server
+
+note over Client, JSON
+  **Key Improvements in Current Architecture:**
+
+  1. **Router-based Routing**: Clean URL pattern matching with named parameters
+  2. **Controller Separation**: OrderController and PancakeController handle specific domains
+  3. **Simplified Concurrency**: Synchronized methods instead of complex atomic operations
+  4. **Consistent Error Handling**: ValidationException with proper HTTP status codes
+  5. **Centralized Rate Limiting**: Applied at ApiHandler level
+  6. **Timeout Protection**: TimeoutHandler wraps all requests
+end note
+
 @enduml
